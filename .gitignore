@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+.env
+*.db
+node_modules/
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+frontend/build/
+frontend/.dart_tool/
+data/trades.json
+*.log
