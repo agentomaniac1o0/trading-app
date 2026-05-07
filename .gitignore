@@ -1,14 +1,44 @@
 # Python
 __pycache__/
 *.pyc
+*.pyo
 .env
+.venv/
+venv/
+*.egg-info/
+dist/
+eggs/
+
+# Database
 *.db
-node_modules/
+*.db-journal
+
+# Flutter / Dart
 .dart_tool/
-build/
 .flutter-plugins
 .flutter-plugins-dependencies
+build/
 frontend/build/
 frontend/.dart_tool/
+frontend/.pub-cache/
+frontend/.pub/
+frontend/pubspec.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data (import source, not versioned)
 data/trades.json
+
+# Logs
 *.log
+
+# Node (if any tooling)
+node_modules/

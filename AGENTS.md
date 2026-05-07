@@ -146,8 +146,12 @@ trading-app/
 
 - [ ] GitHub-Repo erstellt und gepusht
 - [ ] LXC 104 auf pve-1 eingerichtet (Debian 13, Python 3.13, Flutter, Dart)
-- [ ] FastAPI Backend Grundstruktur
-- [ ] Flutter Frontend Grundstruktur
-- [ ] SQLite Schema + Alembic Migration
-- [ ] trades.json → SQLite Import-Migration
+- [x] FastAPI Backend Grundstruktur
+- [x] Flutter Frontend Grundstruktur
+- [x] SQLite Schema + Alembic Migration
+- [x] trades.json → SQLite Import-Migration
 - [ ] KuCoin API-Key für Live-Preise (Read-Only)
+- [ ] Backend-Start testen (`uvicorn app.main:app`)
+- [ ] Flutter-Build testen (`flutter build web`)
+- [ ] trades.json von trading-crew kopieren + ersten Import-Run
+- [ ] End-to-End: Trade öffnen, Preis holen, Trade schließen

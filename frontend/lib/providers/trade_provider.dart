@@ -1,0 +1,38 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/trade.dart';
+import '../services/api_client.dart';
+
+final tradesProvider =
+    AsyncNotifierProvider<TradesNotifier, List<Trade>>(TradesNotifier.new);
+
+class TradesNotifier extends AsyncNotifier<List<Trade>> {
+  @override
+  Future<List<Trade>> build() async {
+    final client = ref.watch(apiClientProvider);
+    final response = await client.get('/api/trades', queryParameters: {
+      'limit': 200,
+    });
+    return (response.data as List)
+        .map((e) => Trade.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Trade> openTrade(Map<String, dynamic> data) async {
+    final client = ref.watch(apiClientProvider);
+    final response = await client.post('/api/trades', data: data);
+    final trade = Trade.fromJson(response.data);
+    ref.invalidateSelf();
+    return trade;
+  }
+
+  Future<Trade> closeTrade(String tradeId, double priceClose) async {
+    final client = ref.watch(apiClientProvider);
+    final response = await client.patch(
+      '/api/trades/$tradeId/close',
+      data: {'price_close': priceClose},
+    );
+    final trade = Trade.fromJson(response.data);
+    ref.invalidateSelf();
+    return trade;
+  }
+}
