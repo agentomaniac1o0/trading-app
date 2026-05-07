@@ -144,7 +144,7 @@ trading-app/
 
 ## Offen
 
-- [ ] GitHub-Repo erstellt und gepusht
+- [x] GitHub-Repo erstellt und gepusht (https://github.com/agentomaniac1o0/trading-app)
 - [ ] LXC 104 auf pve-1 eingerichtet (Debian 13, Python 3.13, Flutter, Dart)
 - [x] FastAPI Backend Grundstruktur
 - [x] Flutter Frontend Grundstruktur
