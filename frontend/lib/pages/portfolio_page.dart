@@ -3,16 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/theme.dart';
 import '../models/live_portfolio.dart';
-import '../models/portfolio.dart';
-import '../models/portfolio_review.dart';
 import '../models/trade.dart';
 import '../models/trader_profile.dart';
 import '../providers/live_portfolio_provider.dart';
-import '../providers/portfolio_review_provider.dart';
 import '../providers/trade_provider.dart';
 import '../providers/trader_provider.dart';
-import '../widgets/portfolio_review_card.dart';
-import '../widgets/sparkline.dart';
 import '../widgets/trader_avatar_row.dart';
 
 class PortfolioPage extends ConsumerWidget {
@@ -23,7 +18,7 @@ class PortfolioPage extends ConsumerWidget {
     final liveAsync = ref.watch(livePortfolioProvider);
     final tradesAsync = ref.watch(tradesProvider);
     final tradersAsync = ref.watch(tradersProvider);
-    final reviewAsync = ref.watch(portfolioReviewProvider);
+    final isWide = MediaQuery.of(context).size.width > 700;
 
     return Scaffold(
       appBar: AppBar(
@@ -35,7 +30,6 @@ class PortfolioPage extends ConsumerWidget {
               ref.invalidate(livePortfolioProvider);
               ref.invalidate(tradesProvider);
               ref.invalidate(tradersProvider);
-              ref.invalidate(portfolioReviewProvider);
             },
           ),
         ],
@@ -45,10 +39,9 @@ class PortfolioPage extends ConsumerWidget {
           ref.invalidate(livePortfolioProvider);
           ref.invalidate(tradesProvider);
           ref.invalidate(tradersProvider);
-          ref.invalidate(portfolioReviewProvider);
         },
         child: liveAsync.when(
-          data: (live) => singleChildScrollView(context, live, tradesAsync, tradersAsync, reviewAsync),
+          data: (live) => singleChildScrollView(context, live, tradesAsync, tradersAsync, isWide),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Error: $e', style: const TextStyle(color: AppColors.textSecondary))),
         ),
@@ -61,7 +54,7 @@ class PortfolioPage extends ConsumerWidget {
     LivePortfolio? live,
     AsyncValue<List<Trade>> tradesAsync,
     AsyncValue<List<TraderProfile>> tradersAsync,
-    AsyncValue<PortfolioReview?> reviewAsync,
+    bool isWide,
   ) {
     if (live == null) {
       return const Center(child: Text('No portfolio data', style: TextStyle(color: AppColors.textSecondary)));
@@ -70,13 +63,11 @@ class PortfolioPage extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _buildOverviewCard(tradersAsync, live),
+        _buildOverviewCard(tradersAsync, live, isWide),
         const SizedBox(height: 16),
         _buildPnlCurve(context, tradesAsync),
         const SizedBox(height: 16),
         _buildLivePositions(live),
-        const SizedBox(height: 16),
-        _buildPortfolioReview(reviewAsync),
       ],
     );
   }
@@ -84,69 +75,80 @@ class PortfolioPage extends ConsumerWidget {
   Widget _buildOverviewCard(
     AsyncValue<List<TraderProfile>> tradersAsync,
     LivePortfolio live,
+    bool isWide,
   ) {
     final pnlColor = live.totalPnl >= 0 ? AppColors.positive : AppColors.negative;
     final investedColor = live.investedMarket >= live.investedCost
         ? AppColors.positive
         : AppColors.negative;
 
+    final kpiGrid = _compactKpiGrid(live, pnlColor, investedColor);
+    final traderSection = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Trader Icons',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 10),
+        tradersAsync.when(
+          data: (traders) => TraderAvatarRow(traders: traders),
+          loading: () => const SizedBox(
+            height: 60,
+            child: Center(child: SizedBox(width: 16, height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2))),
+          ),
+          error: (_, __) => const SizedBox.shrink(),
+        ),
+      ],
+    );
+
+    final dashSection = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Dashboard',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 10),
+        kpiGrid,
+      ],
+    );
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                flex: 4,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        child: isWide
+            ? IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
-                      'Trader Icons',
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    tradersAsync.when(
-                      data: (traders) => TraderAvatarRow(traders: traders),
-                      loading: () => const SizedBox(
-                        height: 60,
-                        child: Center(child: SizedBox(width: 16, height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2))),
-                      ),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
+                    Expanded(flex: 4, child: traderSection),
+                    const SizedBox(width: 16),
+                    Container(width: 2, color: AppColors.border.withOpacity(0.6)),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 5, child: dashSection),
                   ],
                 ),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  traderSection,
+                  const SizedBox(height: 14),
+                  Container(height: 2, color: AppColors.border.withOpacity(0.6)),
+                  const SizedBox(height: 14),
+                  dashSection,
+                ],
               ),
-              const SizedBox(width: 16),
-              Container(width: 2, color: AppColors.border.withOpacity(0.6)),
-              const SizedBox(width: 16),
-              Expanded(
-                flex: 5,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Dashboard',
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    _compactKpiGrid(live, pnlColor, investedColor),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -402,16 +404,6 @@ class PortfolioPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildPortfolioReview(AsyncValue<PortfolioReview?> reviewAsync) {
-    return reviewAsync.when(
-      data: (review) {
-        if (review == null) return const SizedBox();
-        return PortfolioReviewCard(review: review);
-      },
-      loading: () => const SizedBox(),
-      error: (_, __) => const SizedBox(),
-    );
-  }
 }
 
 class _LivePositionRow extends StatelessWidget {
