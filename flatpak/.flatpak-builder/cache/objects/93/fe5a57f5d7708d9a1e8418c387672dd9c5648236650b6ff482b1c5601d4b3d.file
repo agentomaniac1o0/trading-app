@@ -1,0 +1,36 @@
+{
+  "id" : "app.trading.TradingApp",
+  "runtime" : "org.freedesktop.Platform",
+  "runtime-version" : "24.08",
+  "runtime-commit" : "d3326f4ffbecf57054e65db6c1715410dc1a0e00d414548a964a38c548bde264",
+  "sdk" : "org.freedesktop.Sdk",
+  "sdk-commit" : "60767ed840c4a35aadeac65944d235ef47b1d9def9f61969c1760f35ff8f429d",
+  "command" : "trading_app",
+  "modules" : [
+    {
+      "name" : "trading_app",
+      "buildsystem" : "simple",
+      "sources" : [
+        {
+          "path" : "../frontend/build/linux/x64/release/bundle",
+          "type" : "dir"
+        }
+      ],
+      "build-commands" : [
+        "install -Dm755 trading_app /app/bin/trading_app",
+        "mkdir -p /app/bin/lib /app/bin/data",
+        "cp -r lib/* /app/bin/lib/",
+        "cp -r data/* /app/bin/data/"
+      ]
+    }
+  ],
+  "finish-args" : [
+    "--socket=wayland",
+    "--socket=fallback-x11",
+    "--share=ipc",
+    "--share=network",
+    "--device=dri",
+    "--filesystem=home"
+  ],
+  "source-date-epoch" : 1779477630
+}

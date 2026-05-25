@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/theme.dart';
 import '../models/live_portfolio.dart';
 import '../models/portfolio.dart';
+import '../models/portfolio_review.dart';
 import '../models/trade.dart';
 import '../providers/live_portfolio_provider.dart';
 import '../providers/portfolio_review_provider.dart';

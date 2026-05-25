@@ -1,0 +1,19 @@
+[Application]
+name=app.trading.TradingApp
+runtime=org.freedesktop.Platform/x86_64/24.08
+sdk=org.freedesktop.Sdk/x86_64/24.08
+command=trading_app
+
+[Context]
+shared=network;ipc;
+sockets=x11;wayland;fallback-x11;
+devices=dri;
+filesystems=home;
+
+[Extension app.trading.TradingApp.Debug]
+directory=lib/debug
+autodelete=true
+no-autodownload=true
+
+[Build]
+built-extensions=app.trading.TradingApp.Debug;

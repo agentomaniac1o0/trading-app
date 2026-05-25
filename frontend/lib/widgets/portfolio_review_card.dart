@@ -32,7 +32,8 @@ class PortfolioReviewCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            ...review.assets.map((asset) => _AssetReviewTile(asset: asset)),
+            ...review.assets.asMap().entries.map((e) =>
+                _AssetReviewTile(asset: e.value, isLast: e.key == review.assets.length - 1)),
           ],
         ),
       ),
@@ -42,7 +43,8 @@ class PortfolioReviewCard extends StatelessWidget {
 
 class _AssetReviewTile extends StatelessWidget {
   final PortfolioReviewAsset asset;
-  const _AssetReviewTile({required this.asset});
+  final bool isLast;
+  const _AssetReviewTile({required this.asset, required this.isLast});
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +168,7 @@ class _AssetReviewTile extends StatelessWidget {
               }).toList(),
             ),
           ),
-          if (asset != review.assets.last)
+          if (!isLast)
             const Padding(
               padding: EdgeInsets.only(left: 16, top: 4),
               child: Divider(height: 1),
