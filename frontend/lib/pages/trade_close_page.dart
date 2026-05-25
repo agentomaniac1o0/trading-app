@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/theme.dart';
 import '../models/trade.dart';
+import '../models/portfolio_review.dart';
+import '../providers/portfolio_review_provider.dart';
 import '../providers/price_provider.dart';
 import '../providers/trade_provider.dart';
+import '../widgets/portfolio_review_card.dart';
 import '../widgets/trade_card.dart';
 
 class TradeClosePage extends ConsumerWidget {
@@ -12,27 +15,50 @@ class TradeClosePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tradesAsync = ref.watch(tradesProvider);
+    final reviewAsync = ref.watch(portfolioReviewProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Close Trade')),
+      appBar: AppBar(title: const Text('Trades')),
       body: tradesAsync.when(
         data: (trades) {
           final openTrades = trades.where((t) => t.status == 'open').toList();
-          if (openTrades.isEmpty) {
-            return const Center(child: Text('No open trades'));
-          }
-          return ListView.builder(
+          return ListView(
             padding: const EdgeInsets.all(16),
-            itemCount: openTrades.length,
-            itemBuilder: (context, index) {
-              final trade = openTrades[index];
-              return _OpenTradeTile(trade: trade);
-            },
+            children: [
+              if (openTrades.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(
+                    child: Text(
+                      'No open trades',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
+                  ),
+                )
+              else
+                ...openTrades.map((trade) => _OpenTradeTile(trade: trade)),
+              const SizedBox(height: 16),
+              _buildReviewSection(reviewAsync),
+            ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
       ),
+    );
+  }
+
+  Widget _buildReviewSection(AsyncValue<PortfolioReview?> reviewAsync) {
+    return reviewAsync.when(
+      data: (review) {
+        if (review == null || review.assets.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 8),
+          child: PortfolioReviewCard(review: review),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 }

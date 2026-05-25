@@ -100,12 +100,14 @@ trading-app/
 │       │   └── price_service.dart
 │       ├── providers/
 │       │   ├── live_portfolio_provider.dart
+│       │   ├── market_report_provider.dart
 │       │   ├── portfolio_provider.dart
 │       │   ├── portfolio_review_provider.dart
 │       │   ├── price_provider.dart
 │       │   ├── trade_provider.dart
 │       │   └── trader_provider.dart
 │       ├── pages/
+│       │   ├── market_reports_page.dart
 │       │   ├── portfolio_page.dart
 │       │   ├── trade_close_page.dart
 │       │   ├── trade_open_page.dart
@@ -139,6 +141,7 @@ trading-app/
 ## Phase 2+ (später)
 
 - Report-Viewer (Reports aus trading-crew einbinden)
+- Trading Crew: Category-Reports ins Filesystem schreiben (Pattern: `{category}_YYYY-MM-DD.txt`)
 - Circuit Breaker (automatischer Stop nach X Verlusten)
 - Backtesting (historische Strategie-Simulation)
 - Live-Trading-Modus (KuCoin API, Read-Only + API-Key)
@@ -203,6 +206,49 @@ flatpak run app.trading.TradingApp
 ```
 
 ## Session-Log: 2026-05-25
+
+### Trade-Import aus Trading Crew
+- **192 Trades** aus `~/trading-crew/data/trades.json` in SQLite importiert (via `import_trades.py`)
+- Zeitraum: 2026-03-08 bis 2026-05-22
+- 26 offene Positionen, 168 geschlossene Trades
+- Portfolio nach Import: Value $10,521.37, Total P&&L +$532.13 (5.32%), Win-Rate 42.3%
+- `initial_capital` setting auf $10,000 gesetzt
+
+### Market Reports: Neue Seite + Navigation
+- **5\. Tab "Reports"** in Bottom-NavigationBar (zwischen Portfolio und Trades)
+- `GoRouter`: `/market-reports` → `MarketReportsPage`
+- **8 Kategorien**: Crash Prophet, Diamond Hands, Crypto Analysis, Equities, Forex, Commodities, Real Estate, Trader Perspectives
+- Layout: Wide → Sidebar (200px links) + Markdown-Content (rechts), Narrow → Kategorie-Liste oben + Content unten
+- `flutter_markdown` ^0.7.0 zur `pubspec.yaml` hinzugefügt
+
+### Backend: Market-Report-Endpoints
+- `GET /api/reports/market/{category}` — liefert neuesten Report als JSON `{category, report_date, content}`
+- `GET /api/reports/market` — listet alle 8 Kategorien mit Verfügbarkeit auf
+- Datei-Pattern: `~/trading-crew/data/reports/{category}_*.txt` (z.B. `crashprophet_2026-05-25.txt`)
+- 404 wenn kein Report existiert → Frontend zeigt "Kein Report verfügbar"
+- Trading Crew muss zukünftig Reports in dieses Pattern schreiben
+
+### Trades-Sektion erweitert
+- `trade_close_page.dart`: Portfolio-Review-Assets mit Trader-Urteilen unter der Liste offener Trades
+- AppBar-Titel von "Close Trade" → "Trades"
+- `portfolioReviewProvider` wird mitgewacht, ReviewCard darunter gerendert
+
+### Portfolio-Seite bereinigt
+- Market-Reports-Karte aus Portfolio-Seite entfernt (jetzt eigener Tab)
+- `_buildMarketReports()`-Methode gelöscht
+
+### Neue Dateien
+- `frontend/lib/pages/market_reports_page.dart`
+- `frontend/lib/providers/market_report_provider.dart`
+
+### Betroffene Dateien
+- `frontend/lib/app.dart` — 5\. Tab + Route
+- `frontend/pubspec.yaml` — flutter_markdown
+- `backend/app/routers/reports.py` — 2 neue Endpoints
+- `frontend/lib/pages/trade_close_page.dart` — Review-Section
+- `frontend/lib/pages/portfolio_page.dart` — Market-Reports entfernt
+
+## Session-Log: 2026-05-25 (früher)
 
 ### Trader Board: Vom AppBar ins Portfolio-Body
 - **Problem:** Trader-Profile waren eng linksbündig in horizontal scrollbarer AppBar-Leiste (40px Höhe) — kaum sichtbar, keine Beschreibung
@@ -284,7 +330,12 @@ flatpak run app.trading.TradingApp
 - [x] P&L-Kurve + Sparklines im Portfolio
 - [x] Flatpak-Continuous-Delivery (systemd + Remote-Update)
 - [x] Trader Board: Vollflächige Card mit Wrap-Layout, Avatar, Name, Title, Trait-Badges
+- [x] Trade-Import: 192 Trades aus Trading Crew in SQLite importiert
+- [x] Market Reports Page: 5. Tab, 8 Kategorien, Markdown-Renderer
+- [x] Backend: GET /api/reports/market/{category} + /api/reports/market
+- [x] Trades-Sektion: Portfolio-Review-Assets unter offenen Trades
 - [ ] KuCoin API-Key für Live-Preise (Read-Only)
+- [ ] Trading Crew: Reports in Category-Pattern schreiben (statt/neben Discord)
 - [ ] trades.json von trading-crew kopieren + ersten Import-Run
 - [ ] Backend auf LXC 104 deployen (pve-1 Zugang fehlt aktuell)
 - [ ] Settings-Page mit echten Werten (API-Status, DB-Status)

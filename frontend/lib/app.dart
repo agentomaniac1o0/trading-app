@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'config/theme.dart';
 import 'pages/portfolio_page.dart';
+import 'pages/market_reports_page.dart';
 import 'pages/trade_open_page.dart';
 import 'pages/trade_close_page.dart';
 import 'pages/settings_page.dart';
@@ -17,6 +18,14 @@ final router = GoRouter(
             GoRoute(
               path: '/',
               builder: (context, state) => const PortfolioPage(),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/market-reports',
+              builder: (context, state) => const MarketReportsPage(),
             ),
           ],
         ),
@@ -76,6 +85,7 @@ class HomeShell extends StatelessWidget {
         onDestinationSelected: (index) => navigationShell.goBranch(index),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.dashboard), label: 'Portfolio'),
+          NavigationDestination(icon: Icon(Icons.article_outlined), label: 'Reports'),
           NavigationDestination(icon: Icon(Icons.list), label: 'Trades'),
           NavigationDestination(icon: Icon(Icons.add_circle), label: 'New Trade'),
           NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),

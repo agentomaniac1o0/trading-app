@@ -3,13 +3,24 @@ import os
 import re
 from datetime import datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from app.schemas import PortfolioJudgment, PortfolioReviewAsset, PortfolioReviewResponse
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 REPORTS_DIR = os.path.expanduser("~/trading-crew/data/reports")
+
+MARKET_CATEGORIES = [
+    "crashprophet",
+    "diamondhands",
+    "cryptoanalysis",
+    "equities",
+    "forex",
+    "commodities",
+    "real-estate",
+    "trader-perspectives",
+]
 
 
 def _find_latest_report() -> str | None:
@@ -117,3 +128,35 @@ async def latest_portfolio_review():
     with open(path, encoding="utf-8") as f:
         text = f.read()
     return _parse_portfolio_review(text)
+
+
+@router.get("/market/{category}")
+async def get_market_report(category: str):
+    if category not in MARKET_CATEGORIES:
+        raise HTTPException(status_code=404, detail=f"Unknown category: {category}")
+
+    pattern = os.path.join(REPORTS_DIR, f"{category}_*.txt")
+    files = sorted(glob.glob(pattern), key=os.path.getmtime, reverse=True)
+    if not files:
+        raise HTTPException(status_code=404, detail=f"No report found for {category}")
+
+    with open(files[0], encoding="utf-8") as f:
+        content = f.read()
+
+    date_match = re.search(r"(\d{4}-\d{2}-\d{2})", os.path.basename(files[0]))
+    report_date = date_match.group(1) if date_match else "unknown"
+
+    return {"category": category, "report_date": report_date, "content": content}
+
+
+@router.get("/market")
+async def list_market_reports():
+    result = {}
+    for cat in MARKET_CATEGORIES:
+        pattern = os.path.join(REPORTS_DIR, f"{cat}_*.txt")
+        files = sorted(glob.glob(pattern), key=os.path.getmtime, reverse=True)
+        result[cat] = {
+            "available": len(files) > 0,
+            "latest_date": os.path.basename(files[0]).split("_", 1)[1].replace(".txt", "") if files else None,
+        }
+    return result

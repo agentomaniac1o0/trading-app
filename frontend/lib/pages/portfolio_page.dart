@@ -74,8 +74,6 @@ class PortfolioPage extends ConsumerWidget {
         const SizedBox(height: 16),
         _buildPnlCurve(context, tradesAsync),
         const SizedBox(height: 16),
-        _buildMarketReports(context),
-        const SizedBox(height: 16),
         _buildLivePositions(live),
         const SizedBox(height: 16),
         _buildPortfolioReview(reviewAsync),
@@ -208,58 +206,6 @@ class PortfolioPage extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildMarketReports(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.article_outlined, color: AppColors.gold, size: 18),
-                const SizedBox(width: 8),
-                const Text(
-                  'Marktberichte',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const Spacer(),
-                FilledButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Marktbericht wird angefordert...'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.auto_awesome, size: 16),
-                  label: const Text('Bericht anfordern', style: TextStyle(fontSize: 12)),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    backgroundColor: AppColors.gold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Tägliche KI-Analyse deines Portfolios mit Markteinschätzung, Risikobewertung und Handlungsempfehlungen.',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
