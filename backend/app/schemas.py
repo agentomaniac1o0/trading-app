@@ -84,6 +84,7 @@ class TraderProfile(BaseModel):
     color: str
     avatar_url: str
     avatar_base64: str = ""
+    traits: list[str] = []
 
 
 class PortfolioJudgment(BaseModel):

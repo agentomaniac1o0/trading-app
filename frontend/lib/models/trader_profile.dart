@@ -10,6 +10,7 @@ class TraderProfile {
   final String color;
   final String avatarUrl;
   final Uint8List? avatarBytes;
+  final List<String> traits;
 
   const TraderProfile({
     required this.key,
@@ -20,6 +21,7 @@ class TraderProfile {
     required this.color,
     required this.avatarUrl,
     this.avatarBytes,
+    required this.traits,
   });
 
   factory TraderProfile.fromJson(Map<String, dynamic> json) {
@@ -37,6 +39,7 @@ class TraderProfile {
       color: json['color'] as String,
       avatarUrl: json['avatar_url'] as String,
       avatarBytes: bytes,
+      traits: (json['traits'] as List<dynamic>?)?.cast<String>() ?? [],
     );
   }
 }
