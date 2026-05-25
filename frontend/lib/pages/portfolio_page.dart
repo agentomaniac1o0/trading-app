@@ -27,21 +27,7 @@ class PortfolioPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Portfolio'),
-            const SizedBox(width: 8),
-            tradersAsync.when(
-              data: (traders) => TraderAvatarRow(traders: traders),
-              loading: () => const SizedBox(width: 60, height: 28,
-                  child: Center(child: SizedBox(
-                      width: 12, height: 12,
-                      child: CircularProgressIndicator(strokeWidth: 1.5)))),
-              error: (_, __) => const SizedBox(),
-            ),
-          ],
-        ),
+        title: const Text('Portfolio'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -53,6 +39,28 @@ class PortfolioPage extends ConsumerWidget {
             },
           ),
         ],
+        bottom: tradersAsync.when(
+          data: (traders) => PreferredSize(
+            preferredSize: const Size.fromHeight(40),
+            child: Padding(
+              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TraderAvatarRow(traders: traders),
+              ),
+            ),
+          ),
+          loading: () => const PreferredSize(
+            preferredSize: Size.fromHeight(40),
+            child: SizedBox(height: 40,
+                child: Center(child: SizedBox(width: 16, height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2)))),
+          ),
+          error: (_, __) => const PreferredSize(
+            preferredSize: Size.fromHeight(0),
+            child: SizedBox.shrink(),
+          ),
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: () async {

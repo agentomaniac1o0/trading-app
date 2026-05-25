@@ -24,7 +24,7 @@ class TraderAvatarRow extends StatelessWidget {
             child: CircleAvatar(
               radius: 14,
               backgroundColor: _parseColor(trader.color).withOpacity(0.2),
-              foregroundImage: trader.avatarBytes != null
+              backgroundImage: trader.avatarBytes != null
                   ? MemoryImage(trader.avatarBytes!)
                   : null,
               child: trader.avatarBytes == null
