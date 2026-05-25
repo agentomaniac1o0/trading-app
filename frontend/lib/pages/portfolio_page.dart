@@ -11,7 +11,6 @@ import '../providers/live_portfolio_provider.dart';
 import '../providers/portfolio_review_provider.dart';
 import '../providers/trade_provider.dart';
 import '../providers/trader_provider.dart';
-import '../widgets/kpi_card.dart';
 import '../widgets/portfolio_review_card.dart';
 import '../widgets/sparkline.dart';
 import '../widgets/trader_avatar_row.dart';
@@ -71,11 +70,11 @@ class PortfolioPage extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _buildTraderProfiles(tradersAsync),
+        _buildOverviewCard(tradersAsync, live),
         const SizedBox(height: 16),
-        _buildKpis(live),
-        const SizedBox(height: 24),
         _buildPnlCurve(context, tradesAsync),
+        const SizedBox(height: 16),
+        _buildMarketReports(context),
         const SizedBox(height: 16),
         _buildLivePositions(live),
         const SizedBox(height: 16),
@@ -84,141 +83,183 @@ class PortfolioPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildTraderProfiles(AsyncValue<List<TraderProfile>> tradersAsync) {
-    return tradersAsync.when(
-      data: (traders) {
-        if (traders.isEmpty) return const SizedBox.shrink();
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
+  Widget _buildOverviewCard(
+    AsyncValue<List<TraderProfile>> tradersAsync,
+    LivePortfolio live,
+  ) {
+    final pnlColor = live.totalPnl >= 0 ? AppColors.positive : AppColors.negative;
+    final investedColor = live.investedMarket >= live.investedCost
+        ? AppColors.positive
+        : AppColors.negative;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Dashboard',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Expanded(
+                  flex: 4,
+                  child: tradersAsync.when(
+                    data: (traders) => TraderAvatarRow(traders: traders),
+                    loading: () => const SizedBox(
+                      height: 60,
+                      child: Center(child: SizedBox(width: 16, height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2))),
+                    ),
+                    error: (_, __) => const SizedBox.shrink(),
+                  ),
+                ),
+                Container(width: 1, height: 80, color: AppColors.border.withOpacity(0.4)),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 5,
+                  child: _compactKpiGrid(live, pnlColor, investedColor),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _compactKpiGrid(LivePortfolio p, Color pnlColor, Color investedColor) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _miniKpi(
+                label: 'Portfolio Value',
+                value: '\$${p.portfolioValue.toStringAsFixed(2)}',
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _miniKpi(
+                label: 'Cash',
+                value: '\$${p.cash.toStringAsFixed(2)}',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _miniKpi(
+                label: 'Total P&L',
+                value: '${p.totalPnl >= 0 ? "+" : ""}\$${p.totalPnl.toStringAsFixed(2)}',
+                valueColor: pnlColor,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _miniKpi(
+                label: 'Invested (Market)',
+                value: '\$${p.investedMarket.toStringAsFixed(2)}',
+                valueColor: investedColor,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _miniKpi({
+    required String label,
+    required String value,
+    Color? valueColor,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: TextStyle(
+            color: valueColor ?? AppColors.textPrimary,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMarketReports(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.article_outlined, color: AppColors.gold, size: 18),
+                const SizedBox(width: 8),
                 const Text(
-                  'Trader Board',
+                  'Marktberichte',
                   style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 10),
-                TraderAvatarRow(traders: traders),
+                const Spacer(),
+                FilledButton.icon(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Marktbericht wird angefordert...'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.auto_awesome, size: 16),
+                  label: const Text('Bericht anfordern', style: TextStyle(fontSize: 12)),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    backgroundColor: AppColors.gold,
+                  ),
+                ),
               ],
             ),
-          ),
-        );
-      },
-      loading: () => const Card(
-        child: Padding(
-          padding: EdgeInsets.all(20),
-          child: Center(child: SizedBox(width: 20, height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2))),
+            const SizedBox(height: 8),
+            const Text(
+              'Tägliche KI-Analyse deines Portfolios mit Markteinschätzung, Risikobewertung und Handlungsempfehlungen.',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 11,
+              ),
+            ),
+          ],
         ),
       ),
-      error: (_, __) => const SizedBox.shrink(),
-    );
-  }
-
-  Widget _buildKpis(LivePortfolio p) {
-    final pnlColor = p.totalPnl >= 0 ? AppColors.positive : AppColors.negative;
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: KpiCard(
-                title: 'Portfolio Value',
-                value: '\$${p.portfolioValue.toStringAsFixed(2)}',
-                icon: Icons.account_balance_wallet,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: KpiCard(
-                title: 'Total P&L',
-                value: '${p.totalPnl >= 0 ? "+" : ""}\$${p.totalPnl.toStringAsFixed(2)}',
-                subtitle: '${p.totalPnlPct >= 0 ? "+" : ""}${p.totalPnlPct.toStringAsFixed(1)}%',
-                icon: Icons.trending_up,
-                valueColor: pnlColor,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: KpiCard(
-                title: 'Cash',
-                value: '\$${p.cash.toStringAsFixed(2)}',
-                icon: Icons.payments,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: KpiCard(
-                title: 'Invested (Market)',
-                value: '\$${p.investedMarket.toStringAsFixed(2)}',
-                subtitle: 'Cost: \$${p.investedCost.toStringAsFixed(2)}',
-                icon: Icons.show_chart,
-                valueColor: p.investedMarket >= p.investedCost
-                    ? AppColors.positive
-                    : AppColors.negative,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: KpiCard(
-                title: 'Unrealized P&L',
-                value: '${p.unrealizedPnl >= 0 ? "+" : ""}\$${p.unrealizedPnl.toStringAsFixed(2)}',
-                icon: Icons.wb_sunny_outlined,
-                valueColor: p.unrealizedPnl >= 0 ? AppColors.positive : AppColors.negative,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: KpiCard(
-                title: 'Realized P&L',
-                value: '${p.realizedPnl >= 0 ? "+" : ""}\$${p.realizedPnl.toStringAsFixed(2)}',
-                icon: Icons.receipt_long,
-                valueColor: p.realizedPnl >= 0 ? AppColors.positive : AppColors.negative,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: KpiCard(
-                title: 'Open Positions',
-                value: '${p.openPositions}',
-                icon: Icons.open_in_new,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: KpiCard(
-                title: 'Win Rate',
-                value: '${p.winRate.toStringAsFixed(1)}%',
-                subtitle: '${p.closedTrades} closed trades',
-                icon: Icons.emoji_events,
-                valueColor: p.winRate >= 50 ? AppColors.positive : AppColors.negative,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'Initial Capital: \$${p.initialCapital.toStringAsFixed(2)}',
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-        ),
-      ],
     );
   }
 
