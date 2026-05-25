@@ -88,17 +88,23 @@ trading-app/
 │       │   ├── api_config.dart
 │       │   └── theme.dart
 │       ├── models/
+│       │   ├── live_portfolio.dart
 │       │   ├── portfolio.dart
+│       │   ├── portfolio_review.dart
 │       │   ├── price.dart
-│       │   └── trade.dart
+│       │   ├── trade.dart
+│       │   └── trader_profile.dart
 │       ├── services/
 │       │   ├── api_client.dart
 │       │   ├── asset_search_service.dart
 │       │   └── price_service.dart
 │       ├── providers/
+│       │   ├── live_portfolio_provider.dart
 │       │   ├── portfolio_provider.dart
+│       │   ├── portfolio_review_provider.dart
 │       │   ├── price_provider.dart
-│       │   └── trade_provider.dart
+│       │   ├── trade_provider.dart
+│       │   └── trader_provider.dart
 │       ├── pages/
 │       │   ├── portfolio_page.dart
 │       │   ├── trade_close_page.dart
@@ -107,9 +113,11 @@ trading-app/
 │       └── widgets/
 │           ├── ampel_indicator.dart
 │           ├── kpi_card.dart
+│           ├── portfolio_review_card.dart
 │           ├── price_chart.dart
 │           ├── sparkline.dart
-│           └── trade_card.dart
+│           ├── trade_card.dart
+│           └── trader_avatar_row.dart
 ├── flatpak/
 │   ├── app.trading.TradingApp.yml
 │   ├── build-dir/
@@ -179,18 +187,40 @@ trading-app/
 cd ~/trading-app/backend && .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-**Flatpak bauen:**
+**Flatpak bauen (auf ai-agents Server):**
 ```bash
 cd ~/trading-app/frontend && flutter build linux --release --dart-define=API_BASE_URL=http://100.103.32.107:8000
-cd ~/trading-app/flatpak && flatpak-builder --repo=repo --force-clean build-dir app.trading.TradingApp.yml
+cd ~/trading-app/flatpak && rm -rf .flatpak-builder && flatpak-builder --repo=repo --force-clean --install --user build-dir app.trading.TradingApp.yml
 ```
 
-**Client-Update (auf CachyOS-Desktop):**
+**Client-Update (auf CachyOS-Desktop) — bei Frontend-Änderungen IMMER zuerst pullen:**
 ```bash
 flatpak remote-add --user --no-gpg-verify trading-repo http://100.103.32.107:8081  # einmalig
-flatpak update app.trading.TradingApp  # bei jedem neuen Build
+cd ~/trading-app && git pull                                           # Änderungen holen
+cd frontend && flutter build linux --release --dart-define=API_BASE_URL=http://100.103.32.107:8000
+cd ../flatpak && rm -rf .flatpak-builder && flatpak-builder --repo=repo --force-clean --install --user build-dir app.trading.TradingApp.yml
 flatpak run app.trading.TradingApp
 ```
+
+## Session-Log: 2026-05-25
+
+### Trader Board: Vom AppBar ins Portfolio-Body
+- **Problem:** Trader-Profile waren eng linksbündig in horizontal scrollbarer AppBar-Leiste (40px Höhe) — kaum sichtbar, keine Beschreibung
+- **Lösung:** Trader-Profile aus `AppBar.bottom` entfernt und als vollflächige "Trader Board"-Karte oben im Portfolio-Body platziert
+  - Layout: `Wrap` mit `spacing: 12`, `runSpacing: 12` — je 2 Trader pro Zeile über die ganze Breite
+  - `_TraderTile`: `SizedBox(width: (screen-60)/2)` → Row mit Avatar (r=18) + Expanded(Column mit Name, Title, Traits)
+  - Traits als farbige Badges (`Container` mit farbigem Hintergrund, farbigem Text)
+- **Betroffene Dateien:**
+  - `frontend/lib/widgets/trader_avatar_row.dart` — Wrap-Layout, vergrößerter Avatar, Title + Trait-Badges
+  - `frontend/lib/pages/portfolio_page.dart` — Trader aus AppBar.bottom entfernt, `_buildTraderProfiles()` als Card im ListView
+  - Import `trader_profile.dart` hinzugefügt
+- **Commit:** `b060041` feat: Trader Board as full-width card with Wrap layout, avatar + title + trait badges
+
+### Flatpak-Build-Workflow korrigiert
+- **Root Cause:** `.flatpak-builder/` cached alte Quellen → `--force-clean` reicht nicht, Cache muss gelöscht werden
+- **Workflow-Fix:** `rm -rf .flatpak-builder` VOR jedem `flatpak-builder`-Aufruf
+- **Client-Build:** Immer `git pull` vor `flutter build` wenn Frontend-Code geändert wurde
+- AGENTS.md-Deployment-Section aktualisiert mit korrigierten Befehlen
 
 ## Session-Log: 2026-05-22
 
@@ -253,6 +283,7 @@ flatpak run app.trading.TradingApp
 - [x] Portfolio-Berechnung korrigiert
 - [x] P&L-Kurve + Sparklines im Portfolio
 - [x] Flatpak-Continuous-Delivery (systemd + Remote-Update)
+- [x] Trader Board: Vollflächige Card mit Wrap-Layout, Avatar, Name, Title, Trait-Badges
 - [ ] KuCoin API-Key für Live-Preise (Read-Only)
 - [ ] trades.json von trading-crew kopieren + ersten Import-Run
 - [ ] Backend auf LXC 104 deployen (pve-1 Zugang fehlt aktuell)
