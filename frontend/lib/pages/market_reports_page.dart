@@ -5,22 +5,22 @@ import '../config/theme.dart';
 import '../providers/market_report_provider.dart';
 
 const _categories = [
-  _Category('crashprophet', 'Crash Prophet', Icons.warning_amber, AppColors.negative),
-  _Category('diamondhands', 'Diamond Hands', Icons.diamond, AppColors.blue),
-  _Category('cryptoanalysis', 'Crypto Analysis', Icons.currency_bitcoin, AppColors.violet),
-  _Category('equities', 'Equities', Icons.show_chart, AppColors.positive),
-  _Category('forex', 'Forex', Icons.swap_horiz, AppColors.gold),
-  _Category('commodities', 'Commodities', Icons.water_drop, Color(0xFFcd853f)),
-  _Category('real-estate', 'Real Estate', Icons.house, Color(0xFF2e8b57)),
-  _Category('trader-perspectives', 'Trader Perspectives', Icons.psychology, AppColors.gold),
+  _Category('crashprophet', 'Crash Prophet', 'assets/report_icons/crashprophet_avatar.png', AppColors.negative),
+  _Category('diamondhands', 'Diamond Hands', 'assets/report_icons/diamondhands_avatar.png', AppColors.blue),
+  _Category('cryptoanalysis', 'Crypto Analysis', 'assets/report_icons/cryptonewsbot.png', AppColors.violet),
+  _Category('equities', 'Equities', 'assets/report_icons/markets-lilly.png', AppColors.positive),
+  _Category('forex', 'Forex', 'assets/report_icons/ForexHulk_avatar.png', AppColors.gold),
+  _Category('commodities', 'Commodities', 'assets/report_icons/CommoLilly_avatar.png', Color(0xFFcd853f)),
+  _Category('real-estate', 'Real Estate', 'assets/report_icons/CottageScout_avatar.png', Color(0xFF2e8b57)),
+  _Category('trader-perspectives', 'Trader Perspectives', 'assets/report_icons/boersenguru_discord.png', AppColors.gold),
 ];
 
 class _Category {
   final String key;
   final String label;
-  final IconData icon;
+  final String imageAsset;
   final Color color;
-  const _Category(this.key, this.label, this.icon, this.color);
+  const _Category(this.key, this.label, this.imageAsset, this.color);
 }
 
 class MarketReportsPage extends ConsumerStatefulWidget {
@@ -50,7 +50,22 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
       children: [
         SizedBox(
           width: 200,
-          child: _buildCategoryList(),
+          child: Column(
+            children: [
+              Expanded(child: _buildCategoryList()),
+              Padding(
+                padding: const EdgeInsets.all(10),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.asset(
+                    'assets/report_icons/guterBote_discord_neon.png',
+                    width: 180,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
         Container(width: 1, color: AppColors.border.withOpacity(0.4)),
         Expanded(
@@ -86,7 +101,15 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 children: [
-                  Icon(cat.icon, size: 18, color: isSelected ? cat.color : AppColors.textSecondary),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: Image.asset(
+                      cat.imageAsset,
+                      width: 22,
+                      height: 22,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -185,7 +208,15 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(cat.icon, size: 48, color: AppColors.textSecondary.withOpacity(0.4)),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(
+              cat.imageAsset,
+              width: 64,
+              height: 64,
+              fit: BoxFit.cover,
+            ),
+          ),
           const SizedBox(height: 12),
           Text(
             'Kein Report verfügbar',
