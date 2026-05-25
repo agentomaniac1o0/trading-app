@@ -93,24 +93,24 @@ class PortfolioPage extends ConsumerWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Dashboard',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: 4,
-                  child: tradersAsync.when(
+            Expanded(
+              flex: 4,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Trader Icons',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  tradersAsync.when(
                     data: (traders) => TraderAvatarRow(traders: traders),
                     loading: () => const SizedBox(
                       height: 60,
@@ -119,14 +119,29 @@ class PortfolioPage extends ConsumerWidget {
                     ),
                     error: (_, __) => const SizedBox.shrink(),
                   ),
-                ),
-                Container(width: 1, height: 80, color: AppColors.border.withOpacity(0.4)),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 5,
-                  child: _compactKpiGrid(live, pnlColor, investedColor),
-                ),
-              ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Container(width: 2, height: double.infinity, color: AppColors.border.withOpacity(0.6)),
+            const SizedBox(width: 16),
+            Expanded(
+              flex: 5,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Dashboard',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _compactKpiGrid(live, pnlColor, investedColor),
+                ],
+              ),
             ),
           ],
         ),
