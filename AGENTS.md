@@ -338,3 +338,37 @@ flatpak run app.trading.TradingApp
 - [ ] trades.json von trading-crew kopieren + ersten Import-Run
 - [ ] Backend auf LXC 104 deployen (pve-1 Zugang fehlt aktuell)
 - [ ] Settings-Page mit echten Werten (API-Status, DB-Status)
+
+## Session-Log: 2026-05-25 (später)
+
+### Portfolio-Layout-Fix: IntrinsicHeight
+- **Bug:** `Container(height: double.infinity)` als Divider im `Row` der Overview-Card in einer `ListView` → Card unendlich hoch → alle nachfolgenden Sections (P&L Curve, Open Positions, Portfolio Review) verschluckt
+- **Root Cause:** Commit `31e5614` hatte `Container(height: 80)` durch `height: double.infinity` ersetzt
+- **Fix:** Row mit `IntrinsicHeight` + `CrossAxisAlignment.stretch` umwickelt, `height: double.infinity` entfernt
+
+### Responsive Overview Card
+- Wide (>700px): Trader Icons links, Dashboard rechts mit vertikalem Divider
+- Mobile: untereinander gestapelt mit horizontalem Divider dazwischen
+
+### Portfolio Review → Reports verschoben
+- `_buildPortfolioReview` aus Portfolio-Page entfernt
+- Als 9. Kategorie (default) in MarketReportsPage integriert
+- Rendert `PortfolioReviewCard` statt Markdown
+
+### Android-Build
+- Android SDK + NDK + Java installiert
+- `flutter create --platforms=android .` für Android-Projektstruktur
+- `AndroidManifest.xml`: `INTERNET`-Permission + `usesCleartextTraffic="true"` (HTTP zum Backend)
+- APK-Build erfolgreich (66.1 MB)
+- APK in Nextcloud: `Home Lab/Trading App/trading-app-YYYYMMDD-HHMM.apk`
+
+### Reports-Fix (mobile)
+- Narrow-Layout: Kategorie-Liste war vertikale `ListView` mit height:50 → nur 1 Kategorie sichtbar
+- Fix: `ListView.builder` mit `scrollDirection: Axis.horizontal` auf mobile
+
+### Monitoring-App initiiert
+- Grill-Me-Session: 11 Architektur-Entscheidungen getroffen
+- Projekt `~/monitoring-app/` erstellt mit AGENTS.md
+- GitHub: https://github.com/agentomaniac1o0/monitoring-app
+- Geplant: Monitoring-App als separate Flutter-App, Backend in trading-app/backend erweitert
+- Daten: strukturiertes JSON von Monitoring Crews, live Health-Checks
