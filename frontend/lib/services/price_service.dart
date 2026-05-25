@@ -38,4 +38,28 @@ class PriceService {
     }
     return results;
   }
+
+  Future<List<PricePoint>> getHistory(String symbol, {int days = 7}) async {
+    final response = await _client.get(
+      '/api/prices/${symbol.toUpperCase()}/history',
+      queryParameters: {'days': days},
+    );
+    return (response.data as List)
+        .map((e) => PricePoint.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+}
+
+class PricePoint {
+  final String date;
+  final double price;
+
+  const PricePoint({required this.date, required this.price});
+
+  factory PricePoint.fromJson(Map<String, dynamic> json) {
+    return PricePoint(
+      date: json['date'] as String,
+      price: (json['price'] as num).toDouble(),
+    );
+  }
 }

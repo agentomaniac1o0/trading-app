@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import init_db
-from app.routers import portfolio, prices, trades
+from app.routers import portfolio, prices, reports, trades, traders
 
 app = FastAPI(
     title="Trading App",
@@ -19,9 +20,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 app.include_router(trades.router, prefix="/api")
 app.include_router(portfolio.router, prefix="/api")
 app.include_router(prices.router, prefix="/api")
+app.include_router(traders.router, prefix="/api")
+app.include_router(reports.router, prefix="/api")
 
 
 @app.on_event("startup")

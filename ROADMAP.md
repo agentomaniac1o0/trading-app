@@ -28,9 +28,10 @@ Flutter kompiliert aus einer Codebasis für alle drei Targets (`flutter run -d l
   - [x] `schemas.py` – Pydantic request/response schemas
   - [x] `crud.py` – Alle CRUD-Operationen (create, list, close, portfolio stats)
   - [x] `routers/trades.py` – GET/POST/PATCH Trade-Endpoints
-  - [x] `routers/portfolio.py` – GET Portfolio Summary
-  - [x] `routers/prices.py` – GET Live-Preise
+  - [x] `routers/portfolio.py` – GET Portfolio Summary (Formel korrigiert 2026-05-22)
+  - [x] `routers/prices.py` – GET Live-Preise + Search + History
   - [x] `services/price_engine.py` – yfinance + ccxt/KuCoin mit Cache
+  - [x] `services/asset_db.py` – 35+ Assets mit Symbol-Mapping (2026-05-22)
   - [x] `services/import_trades.py` – trades.json → SQLite Migration
   - [x] `main.py` – FastAPI-App mit CORS + Health-Endpoint
   - [x] Alembic-Config + initiale Migration 001
@@ -39,29 +40,29 @@ Flutter kompiliert aus einer Codebasis für alle drei Targets (`flutter run -d l
 - [x] Flutter Frontend komplett aufgesetzt
   - [x] Dark-Finance-Theme (CI-Farben: `#00b09b`, `#e74c3c`, `#f0a500`, `#0d1117`)
   - [x] 4 Pages: Portfolio, Trade öffnen, Trade schließen, Settings
-  - [x] 4 Widgets: KpiCard, TradeCard, AmpelIndicator, PriceChart
+  - [x] 5 Widgets: KpiCard, TradeCard, AmpelIndicator, PriceChart, Sparkline
   - [x] 3 Provider: trades, portfolio, prices (Riverpod)
   - [x] 3 Models: Trade, PortfolioSummary, Price
-  - [x] 2 Services: ApiClient (Dio), PriceService (mit Cache)
-  - [x] go_router + NavigationBar (4 Tabs)
+  - [x] 3 Services: ApiClient (Dio), PriceService (mit History), AssetSearchService
+  - [x] go_router + StatefulShellRoute + NavigationBar (4 Tabs, fix 2026-05-22)
+  - [x] Autocomplete-Asset-Suche im Trade-Erfassen-Formular (2026-05-22)
+  - [x] P&L-Kurve + Open-Positions-Sparklines im Portfolio (2026-05-22)
   - [x] `pubspec.yaml` mit allen Dependencies
   - [x] `web/index.html` für Flutter Web
 - [x] `data/trades.json` – Leeres Template (initial_capital: 10000)
 - [x] `.gitignore` – Python, Flutter, IDE, Daten-Dateien
-- [x] `AGENTS.md` – Skill-Trigger, Architektur, Konventionen
+- [x] `AGENTS.md` + `ROADMAP.md` – Skill-Trigger, Architektur, Konventionen
+- [x] Flatpak-Build + Continuous Delivery (systemd repo-server, `flatpak update`) (2026-05-22)
+- [x] End-to-End getestet: Trade öffnen → Preis holen → Trade schließen (2026-05-22)
 
 ### Noch offen (Phase 1)
 
-- [ ] **GitHub-Repo** erstellen und pushen
-- [ ] **LXC 104** auf pve-1 einrichten (Debian 13, Python 3.13, Flutter, Dart)
-- [ ] **Backend starten und testen** (`uvicorn app.main:app`)
-- [ ] **Flutter-Build testen** (`flutter build web`, `flutter run -d linux`, `flutter build apk`)
-- [ ] **CachyOS Desktop-Build** sicherstellen (Flutter Linux embedding)
-- [ ] **Android APK-Build** sicherstellen (Flutter Android embedding)
+- [ ] **LXC 104** Backend auf pve-1 deployen (SSH-Zugang fehlt)
 - [ ] **trades.json** von `trading-crew/data/trades.json` kopieren + ersten Import-Run
 - [ ] **KuCoin API-Key** für Live-Preise (Read-Only)
-- [ ] **End-to-End Test**: Trade öffnen → Preis holen → Trade schließen
-- [ ] **Portfolio-KPIs** verifizieren (echtes trades.json importieren)
+- [ ] **Portfolio-KPIs** mit echten Trades verifizieren
+- [ ] **Settings-Page** mit Live-API-Status und DB-Status
+- [ ] **Android APK-Build** testen
 
 ---
 

@@ -62,3 +62,76 @@ class PriceResponse(BaseModel):
     currency: str = "USD"
     timestamp: str
     source: str
+
+
+class AssetResult(BaseModel):
+    name: str
+    symbol: str
+    market: str
+
+
+class PriceHistoryPoint(BaseModel):
+    date: str
+    price: float
+
+
+class TraderProfile(BaseModel):
+    key: str
+    name: str
+    emoji: str
+    title: str
+    bio: str
+    color: str
+    avatar_url: str
+    avatar_base64: str = ""
+
+
+class PortfolioJudgment(BaseModel):
+    trader: str
+    judgment: str
+    reason: str
+
+
+class PortfolioReviewAsset(BaseModel):
+    name: str
+    symbol: str
+    direction: str
+    quantity: int
+    live_price: float
+    pnl_pct: float
+    judgments: list[PortfolioJudgment]
+
+
+class PortfolioReviewResponse(BaseModel):
+    report_date: str
+    assets: list[PortfolioReviewAsset]
+
+
+class LivePosition(BaseModel):
+    id: str
+    symbol: str
+    asset: str
+    direction: str
+    price_open: float
+    quantity: float
+    cost: float
+    price_current: float
+    market_value: float
+    unrealized_pnl: float
+    unrealized_pnl_pct: float
+
+
+class LivePortfolioResponse(BaseModel):
+    initial_capital: float
+    cash: float
+    invested_cost: float
+    invested_market: float
+    portfolio_value: float
+    total_pnl: float
+    total_pnl_pct: float
+    unrealized_pnl: float
+    realized_pnl: float
+    open_positions: int
+    closed_trades: int
+    win_rate: float
+    positions: list[LivePosition]

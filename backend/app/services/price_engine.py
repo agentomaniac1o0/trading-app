@@ -95,3 +95,29 @@ async def _get_yfinance_price(symbol: str) -> dict | None:
     except Exception:
         pass
     return None
+
+
+async def get_historical_prices(symbol: str, days: int = 7) -> list[dict] | None:
+    try:
+        if symbol in CRYPTO_SYMBOLS:
+            exchange = _get_crypto_exchange()
+            pair = CRYPTO_SYMBOLS[symbol]
+            since = exchange.milliseconds() - days * 86400000
+            ohlcv = exchange.fetch_ohlcv(pair, "1d", since=since)
+            return [
+                {"date": datetime.utcfromtimestamp(c[0] / 1000).strftime("%Y-%m-%d"),
+                 "price": round(c[4], 4)}
+                for c in ohlcv
+            ]
+        else:
+            ticker = yf.Ticker(symbol)
+            hist = ticker.history(period=f"{days}d")
+            if hist.empty:
+                return None
+            return [
+                {"date": str(idx.date()),
+                 "price": round(float(row["Close"]), 4)}
+                for idx, row in hist.iterrows()
+            ]
+    except Exception:
+        return None

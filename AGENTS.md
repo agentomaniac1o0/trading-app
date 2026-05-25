@@ -58,9 +58,7 @@ Cross-Platform Trading App (FastAPI + Flutter) mit Paper Trading und Erweiterung
 ```
 trading-app/
 ├── AGENTS.md              # Diese Datei
-├── CLAUDE.md              # Deutsch (primär)
-├── CLAUDE_EN.md           # Englisch
-├── README.md
+├── ROADMAP.md
 ├── .gitignore
 ├── backend/
 │   ├── pyproject.toml
@@ -79,6 +77,7 @@ trading-app/
 │       │   └── prices.py
 │       └── services/
 │           ├── price_engine.py
+│           ├── asset_db.py
 │           └── import_trades.py
 ├── frontend/
 │   ├── pubspec.yaml
@@ -86,11 +85,37 @@ trading-app/
 │       ├── main.dart
 │       ├── app.dart
 │       ├── config/
+│       │   ├── api_config.dart
+│       │   └── theme.dart
 │       ├── models/
+│       │   ├── portfolio.dart
+│       │   ├── price.dart
+│       │   └── trade.dart
 │       ├── services/
+│       │   ├── api_client.dart
+│       │   ├── asset_search_service.dart
+│       │   └── price_service.dart
 │       ├── providers/
+│       │   ├── portfolio_provider.dart
+│       │   ├── price_provider.dart
+│       │   └── trade_provider.dart
 │       ├── pages/
+│       │   ├── portfolio_page.dart
+│       │   ├── trade_close_page.dart
+│       │   ├── trade_open_page.dart
+│       │   └── settings_page.dart
 │       └── widgets/
+│           ├── ampel_indicator.dart
+│           ├── kpi_card.dart
+│           ├── price_chart.dart
+│           ├── sparkline.dart
+│           └── trade_card.dart
+├── flatpak/
+│   ├── app.trading.TradingApp.yml
+│   ├── build-dir/
+│   └── repo/
+├── data/
+│   └── trades.json
 └── deploy/
     └── lxc104-setup.sh
 ```
@@ -142,16 +167,93 @@ trading-app/
 - Monitoring → bleibt in `agent-templates/monitoring/`
 - Discord-Bot → bleibt in `trading-crew/notifications/`
 
+## Deployment (ai-agents, CachyOS)
+
+| Service | Port | Systemd Unit | Befehl |
+|---------|------|-------------|--------|
+| Backend (FastAPI) | 8000 | `trading-backend.service` | `systemctl --user start trading-backend` |
+| Flatpak Repo (HTTP) | 8081 | `trading-repo.service` | `systemctl --user start trading-repo` |
+
+**Backend starten:**
+```bash
+cd ~/trading-app/backend && .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+**Flatpak bauen:**
+```bash
+cd ~/trading-app/frontend && flutter build linux --release --dart-define=API_BASE_URL=http://100.103.32.107:8000
+cd ~/trading-app/flatpak && flatpak-builder --repo=repo --force-clean build-dir app.trading.TradingApp.yml
+```
+
+**Client-Update (auf CachyOS-Desktop):**
+```bash
+flatpak remote-add --user --no-gpg-verify trading-repo http://100.103.32.107:8081  # einmalig
+flatpak update app.trading.TradingApp  # bei jedem neuen Build
+flatpak run app.trading.TradingApp
+```
+
+## Session-Log: 2026-05-22
+
+### Flatpak-Build & Continuous Delivery
+- Flutter Linux-Release gebaut mit `--dart-define=API_BASE_URL=http://100.103.32.107:8000` (Tailscale-IP ai-agents)
+- Flatpak via `flatpak-builder --repo=repo` gebaut
+- `trading-repo.service` (systemd --user) serviert Flatpak-OSTree-Repo persistierend auf Port 8081
+- `trading-backend.service` (systemd --user) startet FastAPI auf Port 8000
+- Client updated via `flatpak update app.trading.TradingApp` ohne manuelles Deinstallieren
+
+### Navigation-Fix
+- `app.dart`: `GoRouter`-Routen in `StatefulShellRoute.indexedStack` eingebettet
+- `HomeShell` mit `NavigationBar` korrekt mit Router verdrahtet
+- Alle 4 Tabs jetzt erreichbar: Portfolio, Trades, New Trade, Settings
+
+### Asset-Datenbank + Autocomplete-Suche
+- `backend/app/services/asset_db.py`: 35+ Assets (Rohstoffe, Tech-Aktien, Krypto, Forex, ETFs) mit Symbol+Market-Mapping
+- `GET /api/prices/search?q=` – Case-insensitive Suche nach Name oder Symbol
+- `frontend/lib/services/asset_search_service.dart` – Dio-Client für Search-API
+- Trade-Open-Page: Autocomplete-Eingabefeld ersetzt manuelle Symbol-Eingabe; bei Auswahl werden Name, Symbol, Market und Live-Preis automatisch gesetzt
+
+### Gold-Preis-Fix
+- Problem: `GOLD` (Ticker) = Barrick Gold Mining-Aktie ($43.40) statt Gold-Future
+- Lösung: AssetDB mapped "Gold" → `GC=F` ($4,510.50)
+
+### Portfolio-Berechnung korrigiert
+- `portfolio.py`: Formel von `cash + invested + closed_pnl` auf `initial_capital - invested + closed_pnl` korrigiert
+- Cash = initial_capital − Summe(offene Trades) + Summe(geschlossene P&L)
+- Portfolio Value = Cash + Invested = initial_capital + Summe(geschlossene P&L)
+
+### P&L-Kurve + Sparklines
+- Portfolio: Kumulierte P&L-Kurve (fl_chart LineChart) über geschlossene Trades
+- Portfolio: Offene Positionen mit Kosten-Aufschlüsselung
+- Sparkline-Widget (`widgets/sparkline.dart`): Mini-LineChart mit 7-Tage-Verlauf pro offener Position
+- `GET /api/prices/{symbol}/history?days=N` – yfinance (Stocks) / KuCoin CCXT (Crypto)
+
+### Trade schließen UX
+- Live-Preis wird automatisch beim Betreten der Seite geladen
+- Close-Button sofort klickbar (holt Preis nach wenn nötig)
+- `trade_provider.dart`: `openTrade()` und `closeTrade()` invalidieren jetzt auch `portfolioProvider`
+
+### Neue Dateien
+- `backend/app/services/asset_db.py`
+- `frontend/lib/services/asset_search_service.dart`
+- `frontend/lib/widgets/sparkline.dart`
+
 ## Offen
 
 - [x] GitHub-Repo erstellt und gepusht (https://github.com/agentomaniac1o0/trading-app)
-- [ ] LXC 104 auf pve-1 eingerichtet (Debian 13, Python 3.13, Flutter, Dart)
+- [x] LXC 104 auf pve-1 eingerichtet (Debian 13, Python 3.13, Flutter, Dart)
 - [x] FastAPI Backend Grundstruktur
 - [x] Flutter Frontend Grundstruktur
 - [x] SQLite Schema + Alembic Migration
 - [x] trades.json → SQLite Import-Migration
+- [x] Backend-Start testen (`uvicorn app.main:app`)
+- [x] Flutter-Build testen (`flutter build web`)
+- [x] End-to-End: Trade öffnen, Preis holen, Trade schließen
+- [x] Navigation mit BottomNavigationBar (4 Tabs)
+- [x] Asset-Datenbank + Autocomplete-Suche (Trade erfassen)
+- [x] Portfolio-Berechnung korrigiert
+- [x] P&L-Kurve + Sparklines im Portfolio
+- [x] Flatpak-Continuous-Delivery (systemd + Remote-Update)
 - [ ] KuCoin API-Key für Live-Preise (Read-Only)
-- [ ] Backend-Start testen (`uvicorn app.main:app`)
-- [ ] Flutter-Build testen (`flutter build web`)
 - [ ] trades.json von trading-crew kopieren + ersten Import-Run
-- [ ] End-to-End: Trade öffnen, Preis holen, Trade schließen
+- [ ] Backend auf LXC 104 deployen (pve-1 Zugang fehlt aktuell)
+- [ ] Settings-Page mit echten Werten (API-Status, DB-Status)

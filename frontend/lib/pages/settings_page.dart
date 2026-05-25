@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../config/theme.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -41,7 +42,7 @@ class SettingsPage extends ConsumerWidget {
               leading: const Icon(Icons.cloud_outlined),
               title: const Text('API Status'),
               subtitle: const Text('http://localhost:8000'),
-              trailing: const Icon(Icons.check_circle, color: AppColors.positive),
+              trailing: Icon(Icons.check_circle, color: Color(0xFF00b09b)),
             ),
           ),
           const SizedBox(height: 16),

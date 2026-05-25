@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/trade.dart';
 import '../services/api_client.dart';
+import 'live_portfolio_provider.dart';
+import 'portfolio_provider.dart';
 
 final tradesProvider =
     AsyncNotifierProvider<TradesNotifier, List<Trade>>(TradesNotifier.new);
@@ -22,6 +24,8 @@ class TradesNotifier extends AsyncNotifier<List<Trade>> {
     final response = await client.post('/api/trades', data: data);
     final trade = Trade.fromJson(response.data);
     ref.invalidateSelf();
+    ref.invalidate(portfolioProvider);
+    ref.invalidate(livePortfolioProvider);
     return trade;
   }
 
@@ -33,6 +37,8 @@ class TradesNotifier extends AsyncNotifier<List<Trade>> {
     );
     final trade = Trade.fromJson(response.data);
     ref.invalidateSelf();
+    ref.invalidate(portfolioProvider);
+    ref.invalidate(livePortfolioProvider);
     return trade;
   }
 }
