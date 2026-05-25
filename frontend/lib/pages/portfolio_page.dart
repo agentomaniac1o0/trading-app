@@ -6,6 +6,7 @@ import '../models/live_portfolio.dart';
 import '../models/portfolio.dart';
 import '../models/portfolio_review.dart';
 import '../models/trade.dart';
+import '../models/trader_profile.dart';
 import '../providers/live_portfolio_provider.dart';
 import '../providers/portfolio_review_provider.dart';
 import '../providers/trade_provider.dart';
@@ -39,28 +40,6 @@ class PortfolioPage extends ConsumerWidget {
             },
           ),
         ],
-        bottom: tradersAsync.when(
-          data: (traders) => PreferredSize(
-            preferredSize: const Size.fromHeight(40),
-            child: Padding(
-              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: TraderAvatarRow(traders: traders),
-              ),
-            ),
-          ),
-          loading: () => const PreferredSize(
-            preferredSize: Size.fromHeight(40),
-            child: SizedBox(height: 40,
-                child: Center(child: SizedBox(width: 16, height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2)))),
-          ),
-          error: (_, __) => const PreferredSize(
-            preferredSize: Size.fromHeight(0),
-            child: SizedBox.shrink(),
-          ),
-        ),
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -70,7 +49,7 @@ class PortfolioPage extends ConsumerWidget {
           ref.invalidate(portfolioReviewProvider);
         },
         child: liveAsync.when(
-          data: (live) => singleChildScrollView(context, live, tradesAsync, reviewAsync),
+          data: (live) => singleChildScrollView(context, live, tradesAsync, tradersAsync, reviewAsync),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Error: $e', style: const TextStyle(color: AppColors.textSecondary))),
         ),
@@ -82,6 +61,7 @@ class PortfolioPage extends ConsumerWidget {
     BuildContext context,
     LivePortfolio? live,
     AsyncValue<List<Trade>> tradesAsync,
+    AsyncValue<List<TraderProfile>> tradersAsync,
     AsyncValue<PortfolioReview?> reviewAsync,
   ) {
     if (live == null) {
@@ -91,6 +71,8 @@ class PortfolioPage extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        _buildTraderProfiles(tradersAsync),
+        const SizedBox(height: 16),
         _buildKpis(live),
         const SizedBox(height: 24),
         _buildPnlCurve(context, tradesAsync),
@@ -99,6 +81,42 @@ class PortfolioPage extends ConsumerWidget {
         const SizedBox(height: 16),
         _buildPortfolioReview(reviewAsync),
       ],
+    );
+  }
+
+  Widget _buildTraderProfiles(AsyncValue<List<TraderProfile>> tradersAsync) {
+    return tradersAsync.when(
+      data: (traders) {
+        if (traders.isEmpty) return const SizedBox.shrink();
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Trader Board',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TraderAvatarRow(traders: traders),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => const Card(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Center(child: SizedBox(width: 20, height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2))),
+        ),
+      ),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 
