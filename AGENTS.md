@@ -176,7 +176,6 @@ trading-app/
 - CronMaster → bleibt in `agent-templates/`
 - Watchdog / Intraday-Alerts → bleibt in `trading-crew/`
 - Monitoring → bleibt in `agent-templates/monitoring/`
-- Discord-Bot → bleibt in `trading-crew/notifications/`
 
 ## Deployment (ai-agents, CachyOS)
 
@@ -335,7 +334,7 @@ flatpak run app.trading.TradingApp
 - [x] Backend: GET /api/reports/market/{category} + /api/reports/market
 - [x] Trades-Sektion: Portfolio-Review-Assets unter offenen Trades
 - [ ] KuCoin API-Key für Live-Preise (Read-Only)
-- [ ] Trading Crew: Reports in Category-Pattern schreiben (statt/neben Discord)
+- [ ] Trading Crew: Reports in Category-Pattern schreiben
 - [ ] trades.json von trading-crew kopieren + ersten Import-Run
 - [ ] Backend auf LXC 104 deployen (pve-1 Zugang fehlt aktuell)
 - [ ] Settings-Page mit echten Werten (API-Status, DB-Status)
