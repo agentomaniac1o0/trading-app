@@ -12,9 +12,17 @@ class AppColors {
   static const Color textPrimary = Color(0xFFf0f6fc);
   static const Color textSecondary = Color(0xFF8b949e);
   static const Color border = Color(0xFF30363d);
+
+  // Light mode
+  static const Color lightBg = Color(0xFFf6f8fa);
+  static const Color lightSurface = Color(0xFFffffff);
+  static const Color lightCardBg = Color(0xFFffffff);
+  static const Color lightTextPrimary = Color(0xFF1a1a2e);
+  static const Color lightTextSecondary = Color(0xFF57606a);
+  static const Color lightBorder = Color(0xFFd0d7de);
 }
 
-ThemeData buildTheme() {
+ThemeData buildDarkTheme() {
   return ThemeData(
     brightness: Brightness.dark,
     scaffoldBackgroundColor: AppColors.dark,
@@ -39,27 +47,63 @@ ThemeData buildTheme() {
     ),
     textTheme: const TextTheme(
       headlineLarge: TextStyle(
-        color: AppColors.textPrimary,
-        fontSize: 28,
-        fontWeight: FontWeight.bold,
+        color: AppColors.textPrimary, fontSize: 28, fontWeight: FontWeight.bold,
       ),
       headlineMedium: TextStyle(
-        color: AppColors.textPrimary,
-        fontSize: 22,
-        fontWeight: FontWeight.bold,
+        color: AppColors.textPrimary, fontSize: 22, fontWeight: FontWeight.bold,
       ),
       titleMedium: TextStyle(
-        color: AppColors.textPrimary,
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
+        color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600,
       ),
       bodyLarge: TextStyle(color: AppColors.textPrimary, fontSize: 15),
       bodyMedium: TextStyle(color: AppColors.textSecondary, fontSize: 14),
       labelLarge: TextStyle(
-        color: AppColors.textPrimary,
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
+        color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600,
       ),
     ),
   );
 }
+
+ThemeData buildLightTheme() {
+  return ThemeData(
+    brightness: Brightness.light,
+    scaffoldBackgroundColor: AppColors.lightBg,
+    colorScheme: const ColorScheme.light(
+      primary: AppColors.positive,
+      error: AppColors.negative,
+      surface: AppColors.lightSurface,
+    ),
+    cardTheme: CardThemeData(
+      color: AppColors.lightCardBg,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppColors.lightBorder),
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.positive,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    ),
+    textTheme: const TextTheme(
+      headlineLarge: TextStyle(
+        color: AppColors.lightTextPrimary, fontSize: 28, fontWeight: FontWeight.bold,
+      ),
+      headlineMedium: TextStyle(
+        color: AppColors.lightTextPrimary, fontSize: 22, fontWeight: FontWeight.bold,
+      ),
+      titleMedium: TextStyle(
+        color: AppColors.lightTextPrimary, fontSize: 16, fontWeight: FontWeight.w600,
+      ),
+      bodyLarge: TextStyle(color: AppColors.lightTextPrimary, fontSize: 15),
+      bodyMedium: TextStyle(color: AppColors.lightTextSecondary, fontSize: 14),
+      labelLarge: TextStyle(
+        color: AppColors.lightTextPrimary, fontSize: 14, fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
+}
+
+ThemeData buildTheme() => buildDarkTheme();

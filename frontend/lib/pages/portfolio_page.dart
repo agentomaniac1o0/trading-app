@@ -8,7 +8,19 @@ import '../models/trader_profile.dart';
 import '../providers/live_portfolio_provider.dart';
 import '../providers/trade_provider.dart';
 import '../providers/trader_provider.dart';
+import '../services/price_service.dart';
+import '../widgets/sparkline.dart';
 import '../widgets/trader_avatar_row.dart';
+
+final _priceHistoryProvider =
+    FutureProvider.family<List<PricePoint>, String>((ref, symbol) async {
+  final service = ref.watch(priceServiceProvider);
+  try {
+    return await service.getHistory(symbol, days: 7);
+  } catch (_) {
+    return [];
+  }
+});
 
 class PortfolioPage extends ConsumerWidget {
   const PortfolioPage({super.key});
@@ -41,9 +53,13 @@ class PortfolioPage extends ConsumerWidget {
           ref.invalidate(tradersProvider);
         },
         child: liveAsync.when(
-          data: (live) => singleChildScrollView(context, live, tradesAsync, tradersAsync, isWide),
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Error: $e', style: const TextStyle(color: AppColors.textSecondary))),
+          data: (live) =>
+              singleChildScrollView(context, live, tradesAsync, tradersAsync, isWide, ref),
+          loading: () =>
+              const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(
+              child: Text('Error: $e',
+                  style: const TextStyle(color: AppColors.textSecondary))),
         ),
       ),
     );
@@ -55,9 +71,12 @@ class PortfolioPage extends ConsumerWidget {
     AsyncValue<List<Trade>> tradesAsync,
     AsyncValue<List<TraderProfile>> tradersAsync,
     bool isWide,
+    WidgetRef ref,
   ) {
     if (live == null) {
-      return const Center(child: Text('No portfolio data', style: TextStyle(color: AppColors.textSecondary)));
+      return const Center(
+          child: Text('No portfolio data',
+              style: TextStyle(color: AppColors.textSecondary)));
     }
 
     return ListView(
@@ -67,7 +86,7 @@ class PortfolioPage extends ConsumerWidget {
         const SizedBox(height: 16),
         _buildPnlCurve(context, tradesAsync),
         const SizedBox(height: 16),
-        _buildLivePositions(live),
+        _buildLivePositions(live, ref),
       ],
     );
   }
@@ -77,7 +96,8 @@ class PortfolioPage extends ConsumerWidget {
     LivePortfolio live,
     bool isWide,
   ) {
-    final pnlColor = live.totalPnl >= 0 ? AppColors.positive : AppColors.negative;
+    final pnlColor =
+        live.totalPnl >= 0 ? AppColors.positive : AppColors.negative;
     final investedColor = live.investedMarket >= live.investedCost
         ? AppColors.positive
         : AppColors.negative;
@@ -99,8 +119,12 @@ class PortfolioPage extends ConsumerWidget {
           data: (traders) => TraderAvatarRow(traders: traders),
           loading: () => const SizedBox(
             height: 60,
-            child: Center(child: SizedBox(width: 16, height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2))),
+            child: Center(
+                child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child:
+                        CircularProgressIndicator(strokeWidth: 2))),
           ),
           error: (_, __) => const SizedBox.shrink(),
         ),
@@ -114,11 +138,11 @@ class PortfolioPage extends ConsumerWidget {
           'Dashboard',
           style: TextStyle(
             color: AppColors.textPrimary,
-            fontSize: 15,
+            fontSize: 18,
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         kpiGrid,
       ],
     );
@@ -131,10 +155,12 @@ class PortfolioPage extends ConsumerWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(flex: 4, child: traderSection),
-                    const SizedBox(width: 16),
-                    Container(width: 2, color: AppColors.border.withOpacity(0.6)),
-                    const SizedBox(width: 16),
+                    Expanded(flex: 5, child: traderSection),
+                    const SizedBox(width: 20),
+                    Container(
+                        width: 2,
+                        color: AppColors.border.withOpacity(0.6)),
+                    const SizedBox(width: 20),
                     Expanded(flex: 5, child: dashSection),
                   ],
                 ),
@@ -144,7 +170,9 @@ class PortfolioPage extends ConsumerWidget {
                 children: [
                   traderSection,
                   const SizedBox(height: 14),
-                  Container(height: 2, color: AppColors.border.withOpacity(0.6)),
+                  Container(
+                      height: 2,
+                      color: AppColors.border.withOpacity(0.6)),
                   const SizedBox(height: 14),
                   dashSection,
                 ],
@@ -153,7 +181,8 @@ class PortfolioPage extends ConsumerWidget {
     );
   }
 
-  Widget _compactKpiGrid(LivePortfolio p, Color pnlColor, Color investedColor) {
+  Widget _compactKpiGrid(
+      LivePortfolio p, Color pnlColor, Color investedColor) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -174,13 +203,14 @@ class PortfolioPage extends ConsumerWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
               child: _miniKpi(
                 label: 'Total P&L',
-                value: '${p.totalPnl >= 0 ? "+" : ""}\$${p.totalPnl.toStringAsFixed(2)}',
+                value:
+                    '${p.totalPnl >= 0 ? "+" : ""}\$${p.totalPnl.toStringAsFixed(2)}',
                 valueColor: pnlColor,
               ),
             ),
@@ -203,42 +233,56 @@ class PortfolioPage extends ConsumerWidget {
     required String value,
     Color? valueColor,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-          ),
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: (valueColor ?? AppColors.positive).withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: (valueColor ?? AppColors.positive).withOpacity(0.2),
         ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: TextStyle(
-            color: valueColor ?? AppColors.textPrimary,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              color: valueColor ?? AppColors.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildPnlCurve(BuildContext context, AsyncValue<List<Trade>> tradesAsync) {
+  Widget _buildPnlCurve(
+      BuildContext context, AsyncValue<List<Trade>> tradesAsync) {
     return tradesAsync.when(
       data: (trades) {
-        final closedTrades = trades.where((t) => t.status == 'closed' && t.pnl != null).toList();
+        final closedTrades = trades
+            .where((t) => t.status == 'closed' && t.pnl != null)
+            .toList();
         if (closedTrades.isEmpty) {
           return Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  Text('P&L Curve', style: Theme.of(context).textTheme.titleMedium),
+                  Text('P&L Curve',
+                      style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 12),
                   const Text('No closed trades yet',
                       style: TextStyle(color: AppColors.textSecondary)),
@@ -266,7 +310,8 @@ class PortfolioPage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('P&L Curve', style: Theme.of(context).textTheme.titleMedium),
+                Text('P&L Curve',
+                    style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 12),
                 SizedBox(
                   height: 200,
@@ -292,7 +337,9 @@ class PortfolioPage extends ConsumerWidget {
                             reservedSize: 55,
                             getTitlesWidget: (value, meta) => Text(
                               '\$${value.toStringAsFixed(0)}',
-                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 10),
+                              style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 10),
                             ),
                           ),
                         ),
@@ -300,20 +347,31 @@ class PortfolioPage extends ConsumerWidget {
                           sideTitles: SideTitles(
                             showTitles: true,
                             reservedSize: 30,
-                            interval: spots.length > 10 ? (spots.length / 5).ceilToDouble() : 1,
+                            interval: spots.length > 10
+                                ? (spots.length / 5).ceilToDouble()
+                                : 1,
                             getTitlesWidget: (value, meta) {
                               final idx = value.toInt();
-                              if (idx < 0 || idx >= closedTrades.length) return const SizedBox();
+                              if (idx < 0 || idx >= closedTrades.length) {
+                                return const SizedBox();
+                              }
                               return Padding(
                                 padding: const EdgeInsets.only(top: 6),
-                                child: Text(closedTrades[idx].dateClose!.substring(5),
-                                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 9)),
+                                child: Text(
+                                    closedTrades[idx]
+                                        .dateClose!
+                                        .substring(5),
+                                    style: const TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 9)),
                               );
                             },
                           ),
                         ),
-                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
                       ),
                       borderData: FlBorderData(show: false),
                       lineBarsData: [
@@ -325,9 +383,12 @@ class PortfolioPage extends ConsumerWidget {
                           barWidth: 2.5,
                           dotData: FlDotData(
                             show: spots.length <= 15,
-                            getDotPainter: (spot, _, __, ___) => FlDotCirclePainter(
+                            getDotPainter: (spot, _, __, ___) =>
+                                FlDotCirclePainter(
                               radius: 3,
-                              color: spot.y >= 0 ? AppColors.positive : AppColors.negative,
+                              color: spot.y >= 0
+                                  ? AppColors.positive
+                                  : AppColors.negative,
                               strokeWidth: 0,
                             ),
                           ),
@@ -342,7 +403,10 @@ class PortfolioPage extends ConsumerWidget {
                           getTooltipItems: (spots) => spots
                               .map((s) => LineTooltipItem(
                                     '\$${s.y.toStringAsFixed(2)}',
-                                    const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                                    const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600),
                                   ))
                               .toList(),
                         ),
@@ -356,13 +420,15 @@ class PortfolioPage extends ConsumerWidget {
         );
       },
       loading: () => const Card(
-        child: Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator())),
+        child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Center(child: CircularProgressIndicator())),
       ),
       error: (_, __) => const SizedBox(),
     );
   }
 
-  Widget _buildLivePositions(LivePortfolio p) {
+  Widget _buildLivePositions(LivePortfolio p, WidgetRef ref) {
     if (p.positions.isEmpty) return const SizedBox();
 
     return Card(
@@ -371,13 +437,14 @@ class PortfolioPage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Open Positions',
-                style: const TextStyle(
+            const Text('Open Positions',
+                style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),
-            ...p.positions.map((pos) => _LivePositionBar(position: pos)),
+            ...p.positions.map(
+                (pos) => _LivePositionTile(position: pos, ref: ref)),
             const Divider(),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -407,27 +474,23 @@ class PortfolioPage extends ConsumerWidget {
       ),
     );
   }
-
 }
 
-class _LivePositionBar extends StatelessWidget {
+class _LivePositionTile extends ConsumerWidget {
   final LivePosition position;
-  const _LivePositionBar({required this.position});
+  const _LivePositionTile({required this.position, required this.ref});
+
+  final WidgetRef ref;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isLong = position.direction == 'LONG';
     final dirColor = isLong ? AppColors.positive : AppColors.negative;
     final pnlColor = position.unrealizedPnl >= 0
         ? AppColors.positive
         : AppColors.negative;
-    final maxVal = position.unrealizedPnl >= 0
-        ? position.marketValue
-        : position.cost;
-    final minVal = position.unrealizedPnl >= 0
-        ? position.cost
-        : position.marketValue;
-    final barRatio = maxVal > 0 ? (minVal / maxVal).clamp(0.0, 1.0) : 1.0;
+
+    final historyAsync = ref.watch(_priceHistoryProvider(position.symbol));
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -474,65 +537,43 @@ class _LivePositionBar extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: SizedBox(
-                    height: 16,
-                    child: Stack(
-                      children: [
-                        Container(
-                          color: AppColors.cardBg,
-                          width: double.infinity,
-                        ),
-                        FractionallySizedBox(
-                          widthFactor: position.unrealizedPnl >= 0 ? barRatio : 1,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: position.unrealizedPnl >= 0
-                                    ? [AppColors.positive.withOpacity(0.4),
-                                       AppColors.positive.withOpacity(0.7)]
-                                    : [AppColors.negative.withOpacity(0.7),
-                                       AppColors.negative.withOpacity(0.4)],
-                              ),
-                              borderRadius: BorderRadius.only(
-                                topLeft: const Radius.circular(4),
-                                bottomLeft: const Radius.circular(4),
-                                topRight: position.unrealizedPnl >= 0
-                                    ? const Radius.circular(4)
-                                    : Radius.zero,
-                                bottomRight: position.unrealizedPnl >= 0
-                                    ? const Radius.circular(4)
-                                    : Radius.zero,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                SizedBox(
+                  height: 50,
+                  child: historyAsync.when(
+                    data: (data) => Sparkline(data: data, height: 50),
+                    loading: () => const Center(
+                        child: SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2))),
+                    error: (_, __) =>
+                        const Icon(Icons.show_chart, size: 20, color: AppColors.textSecondary),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Cost: \$${position.cost.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                            color: AppColors.textSecondary, fontSize: 11)),
-                    Text('Now: \$${position.marketValue.toStringAsFixed(2)}',
-                        style: TextStyle(
-                            color: pnlColor,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600)),
+                    Text(
+                      'Live: \$${position.priceCurrent.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                          color: AppColors.gold,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Entry: \$${position.priceOpen.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 11),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      '×${position.quantity.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 11),
+                    ),
                   ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '×${position.quantity.toStringAsFixed(0)}  ·  '
-                  'Entry: \$${position.priceOpen.toStringAsFixed(2)}  ·  '
-                  'Live: \$${position.priceCurrent.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                      color: AppColors.textSecondary, fontSize: 10),
                 ),
               ],
             ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'config/theme.dart';
 import 'pages/portfolio_page.dart';
@@ -58,14 +59,18 @@ final router = GoRouter(
   ],
 );
 
-class TradingApp extends StatelessWidget {
+class TradingApp extends ConsumerWidget {
   const TradingApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+
     return MaterialApp.router(
       title: 'Trading App',
-      theme: buildTheme(),
+      theme: buildDarkTheme(),
+      darkTheme: buildLightTheme(),
+      themeMode: themeMode,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

@@ -32,8 +32,15 @@ class PortfolioReviewCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            ...review.assets.asMap().entries.map((e) =>
-                _AssetReviewTile(asset: e.value, isLast: e.key == review.assets.length - 1)),
+            ...review.assets.asMap().entries.map((e) => _AssetReviewTile(
+                asset: e.value,
+                isLast: e.key == review.assets.length - 1)),
+            if (review.assets.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              const Divider(),
+              const SizedBox(height: 8),
+              _Kommentator(assets: review.assets),
+            ],
           ],
         ),
       ),
@@ -257,5 +264,120 @@ class _AssetReviewTile extends StatelessWidget {
       }
     }
     return sellCount >= 2 || asset.pnlPct < -5;
+  }
+}
+
+class _Kommentator extends StatelessWidget {
+  final List<PortfolioReviewAsset> assets;
+  const _Kommentator({required this.assets});
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = _generateSummary(assets);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.violet.withOpacity(0.08),
+            AppColors.blue.withOpacity(0.06),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.violet.withOpacity(0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.psychology, size: 16, color: AppColors.violet),
+              const SizedBox(width: 6),
+              const Text(
+                'AI-Kommentator',
+                style: TextStyle(
+                  color: AppColors.violet,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            summary,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _generateSummary(List<PortfolioReviewAsset> assets) {
+    if (assets.isEmpty) return 'Keine Daten für eine Analyse verfügbar.';
+
+    int bullishCount = 0;
+    int bearishCount = 0;
+    int haltCount = 0;
+    final riskAssets = <String>[];
+    final strongAssets = <String>[];
+
+    for (final a in assets) {
+      int aBuy = 0, aSell = 0;
+      for (final j in a.judgments) {
+        final ju = j.judgment.toUpperCase();
+        if (ju.contains('AUFSTOCKEN') || ju.contains('KAUFEN')) {
+          bullishCount++;
+          aBuy++;
+        } else if (ju.contains('VERKAUFEN')) {
+          bearishCount++;
+          aSell++;
+        } else {
+          haltCount++;
+        }
+      }
+      if (aSell >= 3) {
+        riskAssets.add(a.name);
+      }
+      if (aBuy >= 4) {
+        strongAssets.add(a.name);
+      }
+    }
+
+    final total = bullishCount + bearishCount + haltCount;
+    final bullPct = total > 0 ? (bullishCount / total * 100).round() : 0;
+    final bearPct = total > 0 ? (bearishCount / total * 100).round() : 0;
+
+    final buf = StringBuffer();
+
+    if (bullPct > bearPct + 20) {
+      buf.write('Das Sentiment ist überwiegend bullisch ($bullPct% Kauf-Signale). ');
+    } else if (bearPct > bullPct + 20) {
+      buf.write('Das Sentiment ist überwiegend bearisch ($bearPct% Verkauf-Signale). ');
+    } else {
+      buf.write('Das Sentiment ist gemischt ($bullPct% bullisch, $bearPct% bearisch). ');
+    }
+
+    if (strongAssets.isNotEmpty) {
+      buf.write(
+          'Starke Kauf-Signale bei: ${strongAssets.join(', ')}. ');
+    }
+    if (riskAssets.isNotEmpty) {
+      buf.write(
+          'Kritisches Sentiment bei: ${riskAssets.join(', ')} — Stop-Loss prüfen! ');
+    }
+    if (riskAssets.isEmpty && strongAssets.isEmpty) {
+      buf.write(
+          'Keine Extrem-Signale — Positionen beobachten. ');
+    }
+
+    buf.write(
+        'Gesamteinschätzung: ${bullPct >= 60 ? 'Optimistisch' : bearPct >= 50 ? 'Defensiv agieren' : 'Selektiv handeln'}.');
+
+    return buf.toString();
   }
 }

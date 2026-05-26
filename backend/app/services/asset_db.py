@@ -16,6 +16,8 @@ ASSET_DB = {
     "Amazon":          {"symbol": "AMZN",   "market": "technologie"},
     "Apple":           {"symbol": "AAPL",   "market": "technologie"},
     "Tesla":           {"symbol": "TSLA",   "market": "technologie"},
+    "Nio":             {"symbol": "NIO",    "market": "technologie"},
+    "Alibaba":         {"symbol": "BABA",   "market": "technologie"},
     "Energy ETF":      {"symbol": "XLE",    "market": "rohstoff"},
     "Finance-Sektor":  {"symbol": "XLF",   "market": "forex"},
     "JPMorgan":        {"symbol": "JPM",    "market": "forex"},
