@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_html/flutter_html.dart';
 import '../config/theme.dart';
 import '../providers/market_report_provider.dart';
 import '../providers/portfolio_review_provider.dart';
@@ -84,7 +85,7 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
     return Column(
       children: [
         SizedBox(
-          height: 52,
+          height: 70,
           child: _buildCategoryList(scrollHorizontal: true),
         ),
         const Divider(height: 1),
@@ -106,7 +107,7 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
           child: InkWell(
             onTap: () => setState(() => _selected = cat.key),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -155,7 +156,15 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
           return _emptyState(_selected);
         }
         final reportDate = data['report_date'] ?? 'unknown';
+        final reportTime = data['report_time'];
         final content = data['content'] ?? '';
+        final dateDisplay = reportTime != null
+            ? '$reportDate at $reportTime'
+            : reportDate;
+
+        final isHtml = content.trimLeft().startsWith('<div') ||
+            content.trimLeft().startsWith('<h2') ||
+            content.trimLeft().startsWith('<h1');
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -165,7 +174,7 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
               child: Row(
                 children: [
                   Text(
-                    'Report: $reportDate',
+                    'Report: $dateDisplay',
                     style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 12,
@@ -184,25 +193,55 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
             ),
             const Divider(height: 1),
             Expanded(
-              child: Markdown(
-                data: content,
-                padding: const EdgeInsets.all(16),
-                styleSheet: MarkdownStyleSheet(
-                  h1: const TextStyle(
-                      color: AppColors.textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
-                  h2: const TextStyle(
-                      color: AppColors.textPrimary, fontSize: 17, fontWeight: FontWeight.w700),
-                  h3: const TextStyle(
-                      color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
-                  p: const TextStyle(color: AppColors.textPrimary, fontSize: 14, height: 1.5),
-                  code: TextStyle(
-                      color: AppColors.gold, backgroundColor: AppColors.cardBg, fontSize: 12),
-                  codeblockDecoration: BoxDecoration(
-                    color: AppColors.cardBg,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
+              child: isHtml
+                  ? SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Html(
+                        data: _resolveAvatarPaths(content),
+                        style: {
+                          'body': Style(
+                            margin: Margins.zero,
+                            padding: HtmlPaddings.zero,
+                            color: AppColors.textPrimary,
+                            fontSize: FontSize(14),
+                          ),
+                          'h2': Style(
+                            color: AppColors.textPrimary,
+                            fontSize: FontSize(17),
+                            fontWeight: FontWeight.w700,
+                          ),
+                          'h3': Style(
+                            color: AppColors.textPrimary,
+                            fontSize: FontSize(15),
+                            fontWeight: FontWeight.w600,
+                          ),
+                          'p': Style(
+                            color: AppColors.textPrimary,
+                            fontSize: FontSize(14),
+                            lineHeight: const LineHeight(1.5),
+                          ),
+                        },
+                      ),
+                    )
+                  : Markdown(
+                      data: content,
+                      padding: const EdgeInsets.all(16),
+                      styleSheet: MarkdownStyleSheet(
+                        h1: const TextStyle(
+                            color: AppColors.textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
+                        h2: const TextStyle(
+                            color: AppColors.textPrimary, fontSize: 17, fontWeight: FontWeight.w700),
+                        h3: const TextStyle(
+                            color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
+                        p: const TextStyle(color: AppColors.textPrimary, fontSize: 14, height: 1.5),
+                        code: TextStyle(
+                            color: AppColors.gold, backgroundColor: AppColors.cardBg, fontSize: 12),
+                        codeblockDecoration: BoxDecoration(
+                          color: AppColors.cardBg,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
             ),
           ],
         );
@@ -318,4 +357,14 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
       ),
     );
   }
+}
+
+String _resolveAvatarPaths(String html) {
+  return html.replaceAllMapped(
+    RegExp(r'<img\s+src="avatars/([^"]+)"\s+style="([^"]*)"\s*/>'),
+    (m) {
+      final name = m.group(1)!.replaceAll('.png', '');
+      return '<span style="${m.group(2)}">&#x25CF;</span>';
+    },
+  );
 }

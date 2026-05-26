@@ -23,6 +23,7 @@ class Trade(Base):
     price_open: Mapped[float] = mapped_column(nullable=False)
     quantity: Mapped[float] = mapped_column(nullable=False)
     cost: Mapped[float] = mapped_column(nullable=False)
+    stop_loss: Mapped[float | None] = mapped_column(nullable=True)
     status: Mapped[str] = mapped_column(String, nullable=False, default="open")
     date_close: Mapped[str | None] = mapped_column(String, nullable=True)
     price_close: Mapped[float | None] = mapped_column(nullable=True)

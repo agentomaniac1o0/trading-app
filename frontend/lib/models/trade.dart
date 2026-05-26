@@ -8,6 +8,7 @@ class Trade {
   final double priceOpen;
   final double quantity;
   final double cost;
+  final double? stopLoss;
   final String status;
   final String? dateClose;
   final double? priceClose;
@@ -28,6 +29,7 @@ class Trade {
     required this.priceOpen,
     required this.quantity,
     required this.cost,
+    this.stopLoss,
     required this.status,
     this.dateClose,
     this.priceClose,
@@ -50,6 +52,9 @@ class Trade {
       priceOpen: (json['price_open'] as num).toDouble(),
       quantity: (json['quantity'] as num).toDouble(),
       cost: (json['cost'] as num).toDouble(),
+      stopLoss: json['stop_loss'] != null
+          ? (json['stop_loss'] as num).toDouble()
+          : null,
       status: json['status'] as String,
       dateClose: json['date_close'] as String?,
       priceClose: json['price_close'] != null
@@ -73,6 +78,7 @@ class Trade {
         'price_open': priceOpen,
         'quantity': quantity,
         'cost': cost,
+        'stop_loss': stopLoss,
         'signal_source': signalSource,
         'notes': notes,
       };

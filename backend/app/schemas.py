@@ -12,6 +12,7 @@ class TradeCreate(BaseModel):
     price_open: float = Field(..., gt=0)
     quantity: float = Field(..., gt=0)
     cost: float = Field(..., gt=0)
+    stop_loss: float | None = None
     signal_source: str | None = None
     notes: str | None = None
 
@@ -19,6 +20,7 @@ class TradeCreate(BaseModel):
 class TradeClose(BaseModel):
     price_close: float = Field(..., gt=0)
     date_close: str | None = None
+    quantity_close: float | None = None
 
 
 class TradeResponse(BaseModel):
@@ -31,6 +33,7 @@ class TradeResponse(BaseModel):
     price_open: float
     quantity: float
     cost: float
+    stop_loss: float | None = None
     status: str
     date_close: str | None
     price_close: float | None

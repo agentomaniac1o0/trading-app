@@ -371,31 +371,35 @@ class PortfolioPage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Open Positions', style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            )),
+            Text('Open Positions',
+                style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),
-            ...p.positions.map((pos) => _LivePositionRow(position: pos)),
+            ...p.positions.map((pos) => _LivePositionBar(position: pos)),
             const Divider(),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Total cost', style: TextStyle(color: AppColors.textSecondary)),
-                Text('\$${p.investedCost.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Total cost',
+                    style: TextStyle(color: AppColors.textSecondary)),
+                Text('\$${p.investedCost.toStringAsFixed(2)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 4),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Total market value', style: TextStyle(color: AppColors.textSecondary)),
+                const Text('Total market value',
+                    style: TextStyle(color: AppColors.textSecondary)),
                 Text('\$${p.investedMarket.toStringAsFixed(2)}',
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: p.investedMarket >= p.investedCost
-                            ? AppColors.positive : AppColors.negative)),
+                            ? AppColors.positive
+                            : AppColors.negative)),
               ],
             ),
           ],
@@ -406,66 +410,129 @@ class PortfolioPage extends ConsumerWidget {
 
 }
 
-class _LivePositionRow extends StatelessWidget {
+class _LivePositionBar extends StatelessWidget {
   final LivePosition position;
-  const _LivePositionRow({required this.position});
+  const _LivePositionBar({required this.position});
 
   @override
   Widget build(BuildContext context) {
     final isLong = position.direction == 'LONG';
-    final pnlColor = position.unrealizedPnl >= 0 ? AppColors.positive : AppColors.negative;
     final dirColor = isLong ? AppColors.positive : AppColors.negative;
+    final pnlColor = position.unrealizedPnl >= 0
+        ? AppColors.positive
+        : AppColors.negative;
+    final maxVal = position.unrealizedPnl >= 0
+        ? position.marketValue
+        : position.cost;
+    final minVal = position.unrealizedPnl >= 0
+        ? position.cost
+        : position.marketValue;
+    final barRatio = maxVal > 0 ? (minVal / maxVal).clamp(0.0, 1.0) : 1.0;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 8, height: 8,
+                width: 10,
+                height: 10,
                 decoration: BoxDecoration(
                   color: dirColor,
                   shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: dirColor.withOpacity(0.4), blurRadius: 4, spreadRadius: 1)],
+                  boxShadow: [
+                    BoxShadow(
+                        color: dirColor.withOpacity(0.4),
+                        blurRadius: 4,
+                        spreadRadius: 1),
+                  ],
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
-                child: Text('${position.symbol} (${position.direction})',
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                child: Text(
+                  '${position.symbol} (${position.direction})',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('\$${position.priceCurrent.toStringAsFixed(2)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Text('Entry: \$${position.priceOpen.toStringAsFixed(2)}',
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
-                ],
+              Text(
+                '${position.unrealizedPnl >= 0 ? "+" : ""}\$${position.unrealizedPnl.toStringAsFixed(2)} '
+                '(${position.unrealizedPnlPct >= 0 ? "+" : ""}${position.unrealizedPnlPct.toStringAsFixed(2)}%)',
+                style: TextStyle(
+                  color: pnlColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Padding(
             padding: const EdgeInsets.only(left: 18),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('×${position.quantity.toStringAsFixed(0)}',
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                const SizedBox(width: 8),
-                Text('Cost: \$${position.cost.toStringAsFixed(2)}',
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                const Spacer(),
-                Text(
-                  '${position.unrealizedPnl >= 0 ? "+" : ""}\$${position.unrealizedPnl.toStringAsFixed(2)} '
-                  '(${position.unrealizedPnlPct >= 0 ? "+" : ""}${position.unrealizedPnlPct.toStringAsFixed(2)}%)',
-                  style: TextStyle(
-                    color: pnlColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: SizedBox(
+                    height: 16,
+                    child: Stack(
+                      children: [
+                        Container(
+                          color: AppColors.cardBg,
+                          width: double.infinity,
+                        ),
+                        FractionallySizedBox(
+                          widthFactor: position.unrealizedPnl >= 0 ? barRatio : 1,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: position.unrealizedPnl >= 0
+                                    ? [AppColors.positive.withOpacity(0.4),
+                                       AppColors.positive.withOpacity(0.7)]
+                                    : [AppColors.negative.withOpacity(0.7),
+                                       AppColors.negative.withOpacity(0.4)],
+                              ),
+                              borderRadius: BorderRadius.only(
+                                topLeft: const Radius.circular(4),
+                                bottomLeft: const Radius.circular(4),
+                                topRight: position.unrealizedPnl >= 0
+                                    ? const Radius.circular(4)
+                                    : Radius.zero,
+                                bottomRight: position.unrealizedPnl >= 0
+                                    ? const Radius.circular(4)
+                                    : Radius.zero,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Cost: \$${position.cost.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                            color: AppColors.textSecondary, fontSize: 11)),
+                    Text('Now: \$${position.marketValue.toStringAsFixed(2)}',
+                        style: TextStyle(
+                            color: pnlColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600)),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '×${position.quantity.toStringAsFixed(0)}  ·  '
+                  'Entry: \$${position.priceOpen.toStringAsFixed(2)}  ·  '
+                  'Live: \$${position.priceCurrent.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                      color: AppColors.textSecondary, fontSize: 10),
                 ),
               ],
             ),

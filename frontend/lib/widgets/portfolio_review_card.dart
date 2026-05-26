@@ -119,53 +119,90 @@ class _AssetReviewTile extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(left: 16),
             child: Column(
-              children: asset.judgments.map((j) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 72,
-                        child: Text(
-                          _traderLabel(j.trader),
-                          style: TextStyle(
-                            color: _traderColor(j.trader),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+              children: [
+                ...asset.judgments.map((j) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 72,
+                          child: Text(
+                            _traderLabel(j.trader),
+                            style: TextStyle(
+                              color: _traderColor(j.trader),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                      ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color:
+                                _judgmentColor(j.judgment).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            j.judgment,
+                            style: TextStyle(
+                              color: _judgmentColor(j.judgment),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            j.reason,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 11,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                if (_needsStopLoss(asset)) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const SizedBox(width: 72),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 1),
+                            horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: _judgmentColor(j.judgment).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(3),
+                          color: AppColors.negative.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                              color: AppColors.negative.withOpacity(0.3)),
                         ),
-                        child: Text(
-                          j.judgment,
-                          style: TextStyle(
-                            color: _judgmentColor(j.judgment),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          j.reason,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 11,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.warning_amber_rounded,
+                                size: 14, color: AppColors.negative),
+                            SizedBox(width: 4),
+                            Text(
+                              'Stop-Loss empfohlen',
+                              style: TextStyle(
+                                color: AppColors.negative,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                );
-              }).toList(),
+                ],
+              ],
             ),
           ),
           if (!isLast)
@@ -207,5 +244,18 @@ class _AssetReviewTile extends StatelessWidget {
       'VERKAUFEN' => AppColors.negative,
       _ => AppColors.textSecondary,
     };
+  }
+
+  static bool _needsStopLoss(PortfolioReviewAsset asset) {
+    int sellCount = 0;
+    for (final j in asset.judgments) {
+      final upper = j.judgment.toUpperCase();
+      if (upper.contains('VERKAUFEN') ||
+          upper.contains('VERKAUF') ||
+          upper.contains('STOP')) {
+        sellCount++;
+      }
+    }
+    return sellCount >= 2 || asset.pnlPct < -5;
   }
 }

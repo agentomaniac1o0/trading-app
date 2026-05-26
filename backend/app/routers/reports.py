@@ -61,13 +61,17 @@ def _parse_judgment(line: str):
 def _parse_portfolio_review(text: str) -> PortfolioReviewResponse | None:
     idx = text.find("## PORTFOLIO")
     if idx < 0:
-        return None
+        idx = text.upper().find("PORTFOLIO_REVIEW")
+        if idx < 0:
+            return None
 
     section = text[idx:]
     after_heading = section.split("\n", 1)[1] if "\n" in section else section
     after_heading = after_heading.strip()
 
     date_match = re.search(r"Trading Report[^0-9]*(\d{4}-\d{2}-\d{2})", text)
+    if not date_match:
+        date_match = re.search(r"(\d{4}-\d{2}-\d{2})", text)
     report_date = date_match.group(1) if date_match else datetime.utcnow().strftime("%Y-%m-%d")
 
     lines = after_heading.strip().split("\n")
@@ -75,12 +79,15 @@ def _parse_portfolio_review(text: str) -> PortfolioReviewResponse | None:
     current_asset: dict | None = None
 
     for line in lines:
-        if line.startswith("##"):
-            break
+        if line.startswith("##") or line.startswith("<h2") or line.startswith("<p"):
+            if "risikohinweis" in line.lower() or "kein anlage" in line.lower():
+                break
+            if "risikohinweis" not in line.lower():
+                continue
         line = line.strip()
         if not line:
             continue
-        if line.startswith("\u2022"):  # bullet
+        if line.startswith("\u2022"):
             h = _parse_header(line)
             if h:
                 current_asset = {
@@ -99,6 +106,25 @@ def _parse_portfolio_review(text: str) -> PortfolioReviewResponse | None:
                 current_asset["judgments"].append(
                     PortfolioJudgment(trader=j[0], judgment=j[1], reason=j[2])
                 )
+
+    if not assets:
+        return None
+
+    return PortfolioReviewResponse(
+        report_date=report_date,
+        assets=[
+            PortfolioReviewAsset(
+                name=a["name"],
+                symbol=a["sym"],
+                direction=a["dir"],
+                quantity=a["qty"],
+                live_price=a["price"],
+                pnl_pct=a["pnl"],
+                judgments=a["judgments"],
+            )
+            for a in assets
+        ],
+    )
 
     if not assets:
         return None
@@ -140,13 +166,26 @@ async def get_market_report(category: str):
     if not files:
         raise HTTPException(status_code=404, detail=f"No report found for {category}")
 
+    basename = os.path.basename(files[0])
     with open(files[0], encoding="utf-8") as f:
         content = f.read()
 
-    date_match = re.search(r"(\d{4}-\d{2}-\d{2})", os.path.basename(files[0]))
+    date_match = re.search(r"(\d{4}-\d{2}-\d{2})", basename)
     report_date = date_match.group(1) if date_match else "unknown"
 
-    return {"category": category, "report_date": report_date, "content": content}
+    time_match = re.search(r"(\d{2}-\d{2})\.txt$", basename)
+    if not time_match:
+        mtime = os.path.getmtime(files[0])
+        report_time = datetime.fromtimestamp(mtime).strftime("%H:%M")
+    else:
+        report_time = time_match.group(1).replace("-", ":")
+
+    return {
+        "category": category,
+        "report_date": report_date,
+        "report_time": report_time,
+        "content": content,
+    }
 
 
 @router.get("/market")

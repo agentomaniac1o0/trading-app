@@ -16,6 +16,7 @@ class _TradeOpenPageState extends ConsumerState<TradeOpenPage> {
   final _formKey = GlobalKey<FormState>();
   final _searchController = TextEditingController();
   final _quantityController = TextEditingController();
+  final _stopLossController = TextEditingController();
   String _direction = 'LONG';
   String _market = 'crypto';
   String? _selectedSymbol;
@@ -29,6 +30,7 @@ class _TradeOpenPageState extends ConsumerState<TradeOpenPage> {
   void dispose() {
     _searchController.dispose();
     _quantityController.dispose();
+    _stopLossController.dispose();
     super.dispose();
   }
 
@@ -102,6 +104,7 @@ class _TradeOpenPageState extends ConsumerState<TradeOpenPage> {
       'price_open': _livePrice ?? 0,
       'quantity': double.tryParse(_quantityController.text) ?? 0,
       'cost': _cost,
+      'stop_loss': double.tryParse(_stopLossController.text) ?? 0,
     };
 
     try {
@@ -119,6 +122,7 @@ class _TradeOpenPageState extends ConsumerState<TradeOpenPage> {
           _assetName = '';
           _livePrice = null;
           _quantityController.clear();
+          _stopLossController.clear();
           _market = 'crypto';
           _submitting = false;
         });
@@ -291,6 +295,20 @@ class _TradeOpenPageState extends ConsumerState<TradeOpenPage> {
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 8),
+
+              // Stop Loss
+              TextFormField(
+                controller: _stopLossController,
+                decoration: const InputDecoration(
+                  labelText: 'Stop Loss (optional)',
+                  hintText: 'e.g. 95000',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.shield, size: 18),
+                ),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
               ),
               const SizedBox(height: 8),
 

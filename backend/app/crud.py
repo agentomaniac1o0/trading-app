@@ -19,6 +19,7 @@ async def create_trade(db: AsyncSession, data: TradeCreate) -> Trade:
         price_open=data.price_open,
         quantity=data.quantity,
         cost=data.cost,
+        stop_loss=data.stop_loss,
         status="open",
         signal_source=data.signal_source,
         notes=data.notes,
@@ -56,17 +57,50 @@ async def close_trade(db: AsyncSession, trade_id: str, data: TradeClose) -> Trad
     if not trade or trade.status == "closed":
         return None
 
-    trade.status = "closed"
-    trade.date_close = data.date_close or datetime.utcnow().strftime("%Y-%m-%d")
-    trade.price_close = data.price_close
-    trade.updated_at = datetime.utcnow().isoformat()
+    qty_to_close = data.quantity_close if data.quantity_close else trade.quantity
+    qty_to_close = min(qty_to_close, trade.quantity)
+
+    close_date = data.date_close or datetime.utcnow().strftime("%Y-%m-%d")
 
     if trade.direction == "LONG":
-        trade.pnl = (data.price_close - trade.price_open) * trade.quantity
+        pnl_part = (data.price_close - trade.price_open) * qty_to_close
     else:
-        trade.pnl = (trade.price_open - data.price_close) * trade.quantity
-    trade.pnl_pct = (trade.pnl / trade.cost) * 100 if trade.cost else 0
+        pnl_part = (trade.price_open - data.price_close) * qty_to_close
 
+    cost_part = trade.cost * (qty_to_close / trade.quantity) if trade.quantity else 0
+
+    if qty_to_close >= trade.quantity:
+        trade.status = "closed"
+        trade.date_close = close_date
+        trade.price_close = data.price_close
+        trade.pnl = pnl_part
+        trade.pnl_pct = (pnl_part / trade.cost) * 100 if trade.cost else 0
+    else:
+        trade.quantity -= qty_to_close
+        trade.cost -= cost_part
+
+        closed_trade = Trade(
+            id=uuid4().hex[:8],
+            date_open=trade.date_open,
+            asset=trade.asset,
+            symbol=trade.symbol,
+            market=trade.market,
+            direction=trade.direction,
+            price_open=trade.price_open,
+            quantity=qty_to_close,
+            cost=cost_part,
+            stop_loss=trade.stop_loss,
+            status="closed",
+            date_close=close_date,
+            price_close=data.price_close,
+            pnl=pnl_part,
+            pnl_pct=(pnl_part / cost_part) * 100 if cost_part else 0,
+            signal_source=trade.signal_source,
+            notes=trade.notes,
+        )
+        db.add(closed_trade)
+
+    trade.updated_at = datetime.utcnow().isoformat()
     await db.commit()
     await db.refresh(trade)
     return trade

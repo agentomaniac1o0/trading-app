@@ -10,8 +10,8 @@ class TraderAvatarRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 8,
-      runSpacing: 6,
+      spacing: 12,
+      runSpacing: 8,
       children: [
         for (final trader in traders) _TraderTile(trader: trader),
       ],

@@ -30,17 +30,18 @@ class TradesNotifier extends AsyncNotifier<List<Trade>> {
     return trade;
   }
 
-  Future<Trade> closeTrade(String tradeId, double priceClose) async {
+  Future<Trade> closeTrade(String tradeId, double priceClose, {double? quantityClose}) async {
     final client = ref.watch(apiClientProvider);
-    final response = await client.patch(
-      '/api/trades/$tradeId/close',
-        data: {'price_close': priceClose},
-    );
-    final trade = Trade.fromJson(response.data);
+    final data = <String, dynamic>{'price_close': priceClose};
+    if (quantityClose != null && quantityClose > 0) {
+      data['quantity_close'] = quantityClose;
+    }
+    final response = await client.patch('/api/trades/$tradeId/close', data: data);
+    final remaining = response.data is Map<String, dynamic> ? Trade.fromJson(response.data) : null;
     ref.invalidateSelf();
     ref.invalidate(portfolioProvider);
     ref.invalidate(livePortfolioProvider);
     ref.invalidate(portfolioReviewProvider);
-    return trade;
+    return remaining ?? Trade.fromJson(response.data);
   }
 }
