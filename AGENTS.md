@@ -204,6 +204,19 @@ cd ../flatpak && rm -rf .flatpak-builder && flatpak-builder --repo=repo --force-
 flatpak run app.trading.TradingApp
 ```
 
+## Session-Log: 2026-05-26
+
+### Portfolio-Review-Refresh-Fix
+- **Bug:** Portfolio Review in der mobilen App wurde nicht aktualisiert, Refresh-Button funktionierte nicht
+- **Root Cause:** `StateProvider<int>` + `ref.watch()`-Pattern im `FutureProvider` für den Refresh-Trigger funktioniert nicht zuverlassig im Zusammenspiel mit `ConsumerStatefulWidget` + `StatefulShellRoute.indexedStack`
+- **Fix:** `portfolio_review_provider.dart`: `StateProvider` entfernt, `refreshPortfolioReview()` nutzt jetzt `ref.invalidate(portfolioReviewProvider)` direkt
+- **Fix:** `trade_provider.dart`: `closeTrade()` invalidateiert jetzt den `portfolioReviewProvider` direkt statt uber `portfolioReviewRefreshKey`
+- **Fix:** `market_report_provider.dart`: Fehlender `import 'package:dio/dio.dart'` hinzugefugt
+- **Betroffene Dateien:**
+  - `frontend/lib/providers/portfolio_review_provider.dart`
+  - `frontend/lib/providers/trade_provider.dart`
+  - `frontend/lib/providers/market_report_provider.dart`
+
 ## Session-Log: 2026-05-25
 
 ### Trade-Import aus Trading Crew

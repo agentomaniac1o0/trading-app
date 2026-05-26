@@ -3,6 +3,7 @@ import '../models/trade.dart';
 import '../services/api_client.dart';
 import 'live_portfolio_provider.dart';
 import 'portfolio_provider.dart';
+import 'portfolio_review_provider.dart';
 
 final tradesProvider =
     AsyncNotifierProvider<TradesNotifier, List<Trade>>(TradesNotifier.new);
@@ -33,12 +34,13 @@ class TradesNotifier extends AsyncNotifier<List<Trade>> {
     final client = ref.watch(apiClientProvider);
     final response = await client.patch(
       '/api/trades/$tradeId/close',
-      data: {'price_close': priceClose},
+        data: {'price_close': priceClose},
     );
     final trade = Trade.fromJson(response.data);
     ref.invalidateSelf();
     ref.invalidate(portfolioProvider);
     ref.invalidate(livePortfolioProvider);
+    ref.invalidate(portfolioReviewProvider);
     return trade;
   }
 }

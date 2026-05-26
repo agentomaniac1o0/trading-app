@@ -6,10 +6,17 @@ import 'package:dio/dio.dart';
 final portfolioReviewProvider = FutureProvider<PortfolioReview?>((ref) async {
   final client = ref.watch(apiClientProvider);
   try {
-    final response = await client.get('/api/reports/portfolio-review');
+    final response = await client.get(
+      '/api/reports/portfolio-review',
+      options: Options(headers: {'Cache-Control': 'no-cache'}),
+    );
     if (response.data == null) return null;
     return PortfolioReview.fromJson(response.data as Map<String, dynamic>);
   } on DioException {
     return null;
   }
 });
+
+void refreshPortfolioReview(WidgetRef ref) {
+  ref.invalidate(portfolioReviewProvider);
+}

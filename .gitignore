@@ -42,3 +42,4 @@ data/trades.json
 
 # Node (if any tooling)
 node_modules/
+graphify-out/

@@ -175,7 +175,7 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.refresh, size: 18),
-                    onPressed: () => ref.invalidate(marketReportProvider(_selected)),
+                    onPressed: () => refreshMarketReport(ref, _selected),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -234,7 +234,7 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
                     style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
-                  onPressed: () => ref.invalidate(portfolioReviewProvider),
+                  onPressed: () => refreshPortfolioReview(ref),
                   icon: const Icon(Icons.refresh, size: 16),
                   label: const Text('Erneut versuchen'),
                 ),
@@ -260,7 +260,7 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.refresh, size: 18),
-                    onPressed: () => ref.invalidate(portfolioReviewProvider),
+                    onPressed: () => refreshPortfolioReview(ref),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -310,7 +310,7 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
           ),
           const SizedBox(height: 16),
           OutlinedButton.icon(
-            onPressed: () => ref.invalidate(marketReportProvider(category)),
+            onPressed: () => refreshMarketReport(ref, category),
             icon: const Icon(Icons.refresh, size: 16),
             label: const Text('Erneut versuchen'),
           ),

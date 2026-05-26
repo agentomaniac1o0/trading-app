@@ -7,7 +7,10 @@ final dioProvider = Provider<Dio>((ref) {
     baseUrl: apiBaseUrl,
     connectTimeout: apiTimeout,
     receiveTimeout: apiTimeout,
-    headers: {'Content-Type': 'application/json'},
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache',
+    },
   ));
   return dio;
 });
