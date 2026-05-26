@@ -385,3 +385,88 @@ flatpak run app.trading.TradingApp
 - GitHub: https://github.com/agentomaniac1o0/monitoring-app
 - Geplant: Monitoring-App als separate Flutter-App, Backend in trading-app/backend erweitert
 - Daten: strukturiertes JSON von Monitoring Crews, live Health-Checks
+---
+
+## Session-Log: 2026-05-27 – Umfangreiches Trading-App-Update
+
+### HTML-Report-Rendering (Flutter)
+- `flutter_html: ^3.0.0-beta.2` als Dependency hinzugefügt
+- `market_reports_page.dart`: Auto-Detection HTML vs Markdown, HTML-Rendering via `flutter_html` mit Dark-Theme-Styling
+- Avatar-Pfade in HTML-Reports werden zu Punktsymbolen konvertiert (Bilder via Asset-Bundle komplex)
+- Trader-Avatars nach `frontend/assets/avatars/` kopiert (buffett, lynch, soros, wood, saylor, planb)
+
+### Report-Zeitstempel
+- Backend `reports.py`: Extrahiert `report_time` aus Dateinamen (`HH-MM.txt`) oder fällt auf mtime zurück
+- Frontend: Zeigt `Report: 2026-05-26 at 21:30` statt nur Datum
+
+### Stop-Loss-System
+- **Backend**: `stop_loss`-Feld in Trade-Model (DB-Migration via ALTER TABLE), Schema `TradeCreate`/`TradeResponse`, CRUD `create_trade`
+- **Frontend**: Eingabefeld beim Trade-Eröffnen (optional), Anzeige im Trade-Balken mit Shield-Icon
+- **Stop-Loss-HIT-Warnung**: Wenn Live-Preis den Stop-Loss erreicht/überschreitet → rote Warnung mit ⚠️
+
+### Partial Close (Teilschließung)
+- **Backend**: `TradeClose.quantity_close` — bei Teilmenge wird Closed-Trade-Record erstellt, offene Menge reduziert, P&L proportional berechnet
+- **Frontend**: "Close Qty"-Eingabefeld + Button in Trade-Tiles. "Close All" für alle Positionen eines Assets
+
+### Trade-Merge (gleiche Assets gruppiert)
+- `trade_close_page.dart` komplett neu: `_groupBySymbol()` fasst gleiche Assets zusammen
+- Ein Balken pro Asset mit: Positions-Count-Badge, Gesamtmenge, Ø-Einstieg, Live-Preis, Est. P&L
+- Aufklappbar für Einzelpositionen mit separatem Close-Button
+
+### Portfolio Open Positions – Sparklines
+- `portfolio_page.dart`: `_LivePositionTile` (ConsumerWidget) ersetzt alte `_LivePositionRow`
+- `_priceHistoryProvider` (FutureProvider.family) lädt 7-Tage-Historie pro Symbol
+- Sparkline-Kurve (50px) mit grün/rot je nach Trend, Touch-Tooltip
+- Entry/Live-Preis + Quantity darunter
+
+### Trader-Icon-Redesign
+- `trader_avatar_row.dart`: `spacing: 16`, `runSpacing: 12` für mehr Abstand
+- Jeder Trader als geblockte Card mit `Container`-Border + 16px Avatar + Name + Traits
+- Dashboard-Titel auf 18px, KPI-Blöcke mit farbigem Hintergrund + Border
+
+### Portfolio Review AI-Kommentator
+- `portfolio_review_card.dart`: Neue `_Kommentator`-Widget-Klasse
+- Zählt bullische/bearische/Halten-Signale über alle Trader-Urteile
+- Identifiziert kritische Assets (≥3 VERKAUFEN) und starke Assets (≥4 KAUFEN/AUFSTOCKEN)
+- Generiert Sentiment-Summary mit Prozent-Angaben und konkreten Handlungsempfehlungen
+- Violette Gradient-Box mit 🧠-Icon
+
+### Dark/Light Mode
+- `theme.dart`: `buildDarkTheme()` + `buildLightTheme()` mit separierten Farben
+- Light-Theme: hellgrauer Hintergrund, weiße Cards, dunkle Texte, selbe Accent-Farben
+- `settings_page.dart`: Switch-Toggle für Dark/Light
+- `app.dart`: `TradingApp` → `ConsumerWidget`, watched `themeModeProvider` (StateProvider)
+- Theme wird sofort umgeschaltet, kein Neustart nötig
+
+### Backend-Fixes
+- `reports.py`: `_parse_portfolio_review()` sucht jetzt nach "PORTFOLIO_REVIEW" (case-insensitive) zusätzlich zu "## PORTFOLIO", ignoriert HTML-Tags
+
+### Builds
+- Linux: `build/linux/x64/release/bundle/trading_app`
+- Android: APK in Nextcloud `Home Lab/Trading App/`
+
+### Betroffene Dateien (trading-app)
+- `backend/app/models.py` — stop_loss-Feld
+- `backend/app/schemas.py` — stop_loss, quantity_close
+- `backend/app/crud.py` — partial close, stop_loss in create
+- `backend/app/routers/reports.py` — report_time, robuste portfolio-review-Parsing
+- `frontend/lib/models/trade.dart` — stopLoss-Feld
+- `frontend/lib/providers/trade_provider.dart` — quantityClose in closeTrade
+- `frontend/lib/pages/portfolio_page.dart` — Sparklines, blockigere KPIs, ConsumerWidget-Fix
+- `frontend/lib/pages/trade_close_page.dart` — Merge + Partial Close
+- `frontend/lib/pages/trade_open_page.dart` — Stop-Loss-Feld
+- `frontend/lib/pages/market_reports_page.dart` — HTML-Rendering + Uhrzeit
+- `frontend/lib/pages/settings_page.dart` — Dark/Light-Toggle
+- `frontend/lib/widgets/portfolio_review_card.dart` — AI-Kommentator
+- `frontend/lib/widgets/trader_avatar_row.dart` — Spacing + Card-Design
+- `frontend/lib/config/theme.dart` — Light Theme
+- `frontend/lib/app.dart` — ThemeModeProvider
+- `frontend/pubspec.yaml` — flutter_html dependency + avatar assets
+
+### Betroffene Dateien (trading-crew)
+- `crew/tasks.py` — alle Build-Tasks auf HTML-Output umgestellt
+- `crew/crew.py` — _clean_report, _split_and_save_categories, _fill_missing für HTML
+- `app/` — gelöscht (Streamlit)
+- `crew/portfolio_context.py` — Import-Pfad korrigiert
+- `crew/trading_data.py` — aus app/ verschoben
+
