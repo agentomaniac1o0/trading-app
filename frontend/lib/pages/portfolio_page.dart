@@ -54,7 +54,7 @@ class PortfolioPage extends ConsumerWidget {
         },
         child: liveAsync.when(
           data: (live) =>
-              singleChildScrollView(context, live, tradesAsync, tradersAsync, isWide, ref),
+              singleChildScrollView(context, live, tradesAsync, tradersAsync, isWide),
           loading: () =>
               const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(
@@ -71,7 +71,6 @@ class PortfolioPage extends ConsumerWidget {
     AsyncValue<List<Trade>> tradesAsync,
     AsyncValue<List<TraderProfile>> tradersAsync,
     bool isWide,
-    WidgetRef ref,
   ) {
     if (live == null) {
       return const Center(
@@ -86,7 +85,7 @@ class PortfolioPage extends ConsumerWidget {
         const SizedBox(height: 16),
         _buildPnlCurve(context, tradesAsync),
         const SizedBox(height: 16),
-        _buildLivePositions(live, ref),
+        _buildLivePositions(live),
       ],
     );
   }
@@ -428,7 +427,7 @@ class PortfolioPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildLivePositions(LivePortfolio p, WidgetRef ref) {
+  Widget _buildLivePositions(LivePortfolio p) {
     if (p.positions.isEmpty) return const SizedBox();
 
     return Card(
@@ -444,7 +443,7 @@ class PortfolioPage extends ConsumerWidget {
                     fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),
             ...p.positions.map(
-                (pos) => _LivePositionTile(position: pos, ref: ref)),
+                (pos) => _LivePositionTile(position: pos)),
             const Divider(),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -478,9 +477,7 @@ class PortfolioPage extends ConsumerWidget {
 
 class _LivePositionTile extends ConsumerWidget {
   final LivePosition position;
-  const _LivePositionTile({required this.position, required this.ref});
-
-  final WidgetRef ref;
+  const _LivePositionTile({required this.position});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
