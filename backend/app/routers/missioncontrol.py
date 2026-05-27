@@ -550,16 +550,58 @@ async def get_code_quality(location: str):
 
 
 @router.get("/{location}/live", response_model=MissioncontrolLive)
+
+
+def _live_service_checks(location: str) -> list[LiveServiceCheck]:
+    import asyncio
+
+    services = [
+        {"name": "Apache", "host": "100.75.220.89", "port": 443},
+        {"name": "MariaDB", "host": "100.75.220.89", "port": 3306},
+        {"name": "Ghost", "host": "192.168.0.172", "port": 2368},
+        {"name": "Uvicorn (Backend)", "host": "127.0.0.1", "port": 8000},
+        {"name": "Flatpak-Repo", "host": "127.0.0.1", "port": 8081},
+        {"name": "ComfyUI", "host": "100.111.44.63", "port": 8188},
+        {"name": "FastSD", "host": "100.111.44.63", "port": 7860},
+        {"name": "MCP-Server", "host": "127.0.0.1", "port": 3000},
+    ]
+
+    results = []
+    for svc in services:
+        online, rt = _tcp_check(svc["host"], svc["port"])
+        results.append(LiveServiceCheck(
+            service=svc["name"],
+            online=online,
+            response_time_ms=rt,
+        ))
+    return results
+
+
+def _tcp_check(host: str, port: int, timeout: float = 2.0) -> tuple[bool, int]:
+    import socket
+    import time
+    start = time.monotonic()
+    try:
+        s = socket.create_connection((host, port), timeout=timeout)
+        s.close()
+        rt = int((time.monotonic() - start) * 1000)
+        return True, rt
+    except (socket.timeout, OSError):
+        return False, 0
 async def get_live(location: str):
+    heartbeats = [
+        LiveHeartbeat(system="pve-1", status="ok"),
+        LiveHeartbeat(system="nextcloud", status="ok"),
+        LiveHeartbeat(system="ai-agents", status="ok"),
+        LiveHeartbeat(system="ghost-blog", status="ok"),
+        LiveHeartbeat(system="image-gen", status="ok"),
+    ]
+
+    service_checks = _live_service_checks(location)
+
     return MissioncontrolLive(
-        heartbeats=[
-            LiveHeartbeat(system="pve-1", status="ok"),
-            LiveHeartbeat(system="nextcloud", status="ok"),
-            LiveHeartbeat(system="ai-agents", status="ok"),
-            LiveHeartbeat(system="ghost-blog", status="ok"),
-            LiveHeartbeat(system="image-gen", status="ok"),
-        ],
-        service_checks=[],
+        heartbeats=heartbeats,
+        service_checks=service_checks,
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
 
