@@ -292,9 +292,9 @@ def _parse_code_quality() -> dict:
     return {
         "findings": findings,
         "open_ports": open_ports,
-        "hardcoded_secrets": 0,
-        "bare_excepts": 0,
-        "auto_fix_results": [],
+        "hardcoded_secrets": sum(1 for f in findings if any(kw in (f.get("title","")+f.get("description","")).lower() for kw in ["hardcoded","secret","credential","api_key","passwort"])),
+        "bare_excepts": sum(1 for f in findings if any(kw in (f.get("title","")+f.get("description","")).lower() for kw in ["bare except","silent fail","except","timeout","try/finally","finally"])),
+        "auto_fix_results": [f["title"][:60] for f in findings if f.get("auto_fixed")],
     }
 
 
@@ -315,9 +315,9 @@ def _parse_code_quality_prod() -> dict:
         return {
             "findings": findings,
             "open_ports": [],
-            "hardcoded_secrets": 0,
-            "bare_excepts": 0,
-            "auto_fix_results": data.get("auto_fix_results", []),
+            "hardcoded_secrets": sum(1 for f in findings if any(kw in (f.get("title","")+f.get("description","")).lower() for kw in ["hardcoded","secret","credential","api_key","passwort"])),
+            "bare_excepts": sum(1 for f in findings if any(kw in (f.get("title","")+f.get("description","")).lower() for kw in ["bare except","silent fail","except","timeout","try/finally","finally"])),
+            "auto_fix_results": [f["title"][:60] for f in findings if f.get("auto_fixed")] + data.get("auto_fix_results", []),
         }
     except (json.JSONDecodeError, Exception):
         return {"findings": [], "open_ports": [], "hardcoded_secrets": 0, "bare_excepts": 0, "auto_fix_results": []}
