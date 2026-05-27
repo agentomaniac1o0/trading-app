@@ -616,6 +616,7 @@ GRAPHIFY_DIR = os.environ.get(
 )
 GRAPH_PATH = os.path.join(GRAPHIFY_DIR, "graph.json")
 GRAPH_HTML_PATH = os.path.join(GRAPHIFY_DIR, "graph.html")
+GRAPH_SVG_PATH = os.path.join(GRAPHIFY_DIR, "graph.svg")
 
 _graph_cache: dict | None = None
 _graph_mtime: float = 0.0
@@ -811,3 +812,11 @@ async def refresh_graphiphy_viz(location: str):
         raise HTTPException(status_code=504, detail="Graph regeneration timed out")
     except FileNotFoundError:
         raise HTTPException(status_code=500, detail="graphify CLI not found in PATH")
+
+
+@router.get("/{location}/graphiphy/svg")
+async def get_graphiphy_svg(location: str):
+    if not os.path.exists(GRAPH_SVG_PATH):
+        raise HTTPException(status_code=404, detail="graph.svg not generated yet.")
+    with open(GRAPH_SVG_PATH, encoding="utf-8") as f:
+        return HTMLResponse(content=f.read(), media_type="image/svg+xml")
