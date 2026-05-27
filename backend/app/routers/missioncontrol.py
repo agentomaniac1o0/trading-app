@@ -230,17 +230,25 @@ def _parse_system_from_md(path: str) -> dict:
             in_vm_table = False
 
     # Set disk percentages from storage section (5.1 / SPEICHERPLATZ)
-    # Format: | **VM 100 (Nextcloud)** | / | 114 GB | 2.8 GB | 106 GB | 3% |
+    # Format varies: | **VM 100 (Nextcloud)** | / | 114 GB | 2.8 GB | 106 GB | 3 % |
+    #                | | /mnt/nextcloud-data | 984 GB | 48 GB | 886 GB | 6 % |
+    #                | **LXC 102 (Ghost Blog)** | / | 25 GB | 6.5 GB | 17 GB | 28 % |
     disk_map = {}
+    current_key = None
     for line in text.splitlines():
         for pat in [r"\*?\*?(VM \d+|LXC \d+)", r"(LXC \d+.*?)\]"]:
             m = re.search(pat, line)
             if m:
-                key = m.group(1).replace("**", "").strip()
-                pct_m = re.search(r"\|\s*(\d+)\s*%\s*\|?\s*$", line)
-                if pct_m:
-                    disk_map[key] = float(pct_m.group(1))
-                    break
+                current_key = m.group(1).replace("**", "").strip()
+                break
+        pct_m = re.search(r"\|\s*(\d+)\s*%\s*\|?\s*$", line)
+        if pct_m and current_key:
+            pct = float(pct_m.group(1))
+            mnt = re.search(r"\|\s*/\s*\|", line)  # root mount?
+            if mnt and current_key not in disk_map:
+                disk_map[current_key] = pct
+            elif current_key not in disk_map:
+                disk_map[current_key] = pct
     for vm in vms:
         vm_id = re.search(r"(\d+)", vm["name"].split(":")[0])
         vm_num = vm_id.group(1) if vm_id else ""
