@@ -575,13 +575,11 @@ def _live_service_checks(location: str) -> list[LiveServiceCheck]:
 
     services = [
         ("Apache", "100.75.220.89", 443),
-        ("MariaDB", "100.75.220.89", 3306),
-        ("Ghost", "192.168.0.172", 2368),
+        ("Ghost Blog", "192.168.0.172", 80),
         ("Uvicorn (Backend)", "127.0.0.1", 8000),
         ("Flatpak-Repo", "127.0.0.1", 8081),
         ("ComfyUI", "100.111.44.63", 8188),
         ("FastSD", "100.111.44.63", 7860),
-        ("MCP-Server", "127.0.0.1", 3000),
     ]
 
     async def _check(name: str, host: str, port: int) -> LiveServiceCheck:
