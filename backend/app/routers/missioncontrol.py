@@ -2,13 +2,20 @@ import glob
 import json
 import os
 import re
+import subprocess
+from collections import Counter
 from datetime import datetime, timezone
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import HTMLResponse
 
 from app.schemas import (
     BackupStatus,
     Finding,
+    GraphiphyCommunity,
+    GraphiphyGodNode,
+    GraphiphyNode,
+    GraphiphyStats,
     HealthScore,
     LiveHeartbeat,
     LiveServiceCheck,
@@ -595,9 +602,212 @@ def _extract_vm_num(name: str) -> str:
         if re.search(rf"\b{vid}\b", name):
             return vid
     return ""
-    m = re.search(pattern, text)
-    return m.group(1) if m else None
 
 
 def _re_search(pattern: str, text: str, flags=0):
     return re.search(pattern, text, flags)
+
+
+# ── Graphiphy: graph.json loader / cache ───────────────────────────────
+
+GRAPHIFY_DIR = os.environ.get(
+    "GRAPHIFY_OUT_DIR",
+    os.path.expanduser("~/graphify-out"),
+)
+GRAPH_PATH = os.path.join(GRAPHIFY_DIR, "graph.json")
+GRAPH_HTML_PATH = os.path.join(GRAPHIFY_DIR, "graph.html")
+
+_graph_cache: dict | None = None
+_graph_mtime: float = 0.0
+
+
+def _load_graph() -> dict:
+    global _graph_cache, _graph_mtime
+    if not os.path.exists(GRAPH_PATH):
+        return {"nodes": [], "links": []}
+    mtime = os.path.getmtime(GRAPH_PATH)
+    if _graph_cache is not None and mtime <= _graph_mtime:
+        return _graph_cache
+    with open(GRAPH_PATH, encoding="utf-8") as f:
+        _graph_cache = json.load(f)
+    _graph_mtime = mtime
+    return _graph_cache
+
+
+def _build_degree_index(nodes: list[dict], links: list[dict]) -> dict[str, int]:
+    deg: dict[str, int] = Counter()
+    for n in nodes:
+        deg[n["id"]] = 0
+    for l in links:
+        s = l.get("source", "")
+        t = l.get("target", "")
+        if isinstance(s, str):
+            deg[s] += 1
+        if isinstance(t, str):
+            deg[t] += 1
+    return deg
+
+
+def _build_community_index(nodes: list[dict]) -> dict[int, list[dict]]:
+    idx: dict[int, list[dict]] = {}
+    for n in nodes:
+        c = n.get("community")
+        if c is not None:
+            idx.setdefault(c, []).append(n)
+    return idx
+
+
+_STATS_CACHE: tuple | None = None
+_STATS_MTIME: float = 0.0
+
+
+def _get_graph_stats() -> GraphiphyStats:
+    global _STATS_CACHE, _STATS_MTIME
+    mtime = os.path.getmtime(GRAPH_PATH) if os.path.exists(GRAPH_PATH) else 0
+    if _STATS_CACHE is not None and mtime <= _STATS_MTIME:
+        return _STATS_CACHE[0], _STATS_CACHE[1], _STATS_CACHE[2]
+    graph = _load_graph()
+    nodes = graph.get("nodes", [])
+    links = graph.get("links", [])
+    communities = set()
+    ftypes: dict[str, int] = Counter()
+    for n in nodes:
+        ftypes[n.get("file_type", "unknown")] += 1
+        c = n.get("community")
+        if c is not None:
+            communities.add(c)
+    deg = _build_degree_index(nodes, links)
+    _STATS_CACHE = (GraphiphyStats(
+        node_count=len(nodes),
+        edge_count=len(links),
+        community_count=len(communities),
+        file_types=dict(ftypes),
+    ), deg, _build_community_index(nodes))
+    _STATS_MTIME = mtime
+    return _STATS_CACHE[0], _STATS_CACHE[1], _STATS_CACHE[2]
+
+
+# ── Graphiphy Endpoints ─────────────────────────────────────────────────
+
+@router.get("/{location}/graphiphy/stats", response_model=GraphiphyStats)
+async def get_graphiphy_stats(location: str):
+    stats, _, _ = _get_graph_stats()
+    return stats
+
+
+@router.get("/{location}/graphiphy/god-nodes", response_model=list[GraphiphyGodNode])
+async def get_graphiphy_god_nodes(location: str, top_n: int = 20):
+    _, deg, _ = _get_graph_stats()
+    if not deg:
+        return []
+    graph = _load_graph()
+    node_map = {n["id"]: n for n in graph.get("nodes", [])}
+    sorted_deg = sorted(deg.items(), key=lambda x: x[1], reverse=True)[:top_n]
+    result = []
+    for nid, d in sorted_deg:
+        nd = node_map.get(nid, {})
+        result.append(GraphiphyGodNode(
+            label=nd.get("label", nid),
+            degree=d,
+            community=nd.get("community", -1),
+            file_type=nd.get("file_type", "unknown"),
+        ))
+    return result
+
+
+@router.get("/{location}/graphiphy/communities", response_model=list[GraphiphyCommunity])
+async def get_graphiphy_communities(location: str, limit: int = 50, offset: int = 0):
+    _, _, comm_idx = _get_graph_stats()
+    if not comm_idx:
+        return []
+    sized = sorted(comm_idx.items(), key=lambda x: len(x[1]), reverse=True)
+    page = sized[offset:offset + limit]
+    result = []
+    for cid, nodes in page:
+        top_labels = [n["label"] for n in nodes[:5]]
+        result.append(GraphiphyCommunity(
+            id=cid,
+            size=len(nodes),
+            top_labels=top_labels,
+        ))
+    return result
+
+
+@router.get("/{location}/graphiphy/community/{community_id}", response_model=list[GraphiphyNode])
+async def get_graphiphy_community(location: str, community_id: int):
+    _, deg, comm_idx = _get_graph_stats()
+    nodes = comm_idx.get(community_id, [])
+    if not nodes:
+        raise HTTPException(status_code=404, detail="Community not found")
+    result = []
+    for n in nodes:
+        result.append(GraphiphyNode(
+            label=n.get("label", ""),
+            file_type=n.get("file_type", "unknown"),
+            community=n.get("community", -1),
+            source_file=n.get("source_file", ""),
+            degree=deg.get(n.get("id", ""), 0),
+            id=n.get("id", ""),
+        ))
+    return result
+
+
+@router.get("/{location}/graphiphy/search", response_model=list[GraphiphyNode])
+async def search_graphiphy(location: str, q: str = "", limit: int = 20):
+    if not q:
+        return []
+    graph = _load_graph()
+    nodes = graph.get("nodes", [])
+    links = graph.get("links", [])
+    deg = _build_degree_index(nodes, links)
+    q_lower = q.lower()
+    terms = q_lower.split()
+    scored = []
+    for n in nodes:
+        label = n.get("label", "").lower()
+        score = sum(1 for t in terms if t in label)
+        if score > 0:
+            scored.append((score, n))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    result = []
+    for _, n in scored[:limit]:
+        result.append(GraphiphyNode(
+            label=n.get("label", ""),
+            file_type=n.get("file_type", "unknown"),
+            community=n.get("community", -1),
+            source_file=n.get("source_file", ""),
+            degree=deg.get(n.get("id", ""), 0),
+            id=n.get("id", ""),
+        ))
+    return result
+
+
+# ── Graphiphy Viz (HTML) ────────────────────────────────────────────────
+
+@router.get("/{location}/graphiphy/viz")
+async def get_graphiphy_viz(location: str):
+    if not os.path.exists(GRAPH_HTML_PATH):
+        raise HTTPException(status_code=404, detail="graph.html not generated yet. Run 'graphify cluster-only .' first.")
+    with open(GRAPH_HTML_PATH, encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
+
+
+@router.post("/{location}/graphiphy/viz/refresh")
+async def refresh_graphiphy_viz(location: str):
+    if not os.path.exists(GRAPH_PATH):
+        raise HTTPException(status_code=404, detail="No graph.json found.")
+    try:
+        result = subprocess.run(
+            ["graphify", "cluster-only", GRAPHIFY_DIR],
+            capture_output=True, text=True, timeout=120,
+        )
+        ok = os.path.exists(GRAPH_HTML_PATH)
+        return {
+            "success": ok,
+            "output": result.stdout[-500:] if result.stdout else "",
+            "error": result.stderr[-500:] if result.stderr else "",
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Graph regeneration timed out")
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="graphify CLI not found in PATH")

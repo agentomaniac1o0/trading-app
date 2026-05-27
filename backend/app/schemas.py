@@ -242,3 +242,32 @@ class LivePortfolioResponse(BaseModel):
     closed_trades: int
     win_rate: float
     positions: list[LivePosition]
+
+
+class GraphiphyStats(BaseModel):
+    node_count: int
+    edge_count: int
+    community_count: int
+    file_types: dict[str, int]
+
+
+class GraphiphyGodNode(BaseModel):
+    label: str
+    degree: int
+    community: int
+    file_type: str
+
+
+class GraphiphyNode(BaseModel):
+    label: str
+    file_type: str
+    community: int
+    source_file: str
+    degree: int
+    id: str = ""
+
+
+class GraphiphyCommunity(BaseModel):
+    id: int
+    size: int
+    top_labels: list[str]
