@@ -25,6 +25,8 @@ from app.schemas import (
     MissioncontrolSystem,
     OpenPort,
     ProxmoxHost,
+    ReportDetail,
+    ReportListItem,
     ServiceStatus,
     SysUpdate,
     VmStatus,
@@ -925,3 +927,44 @@ def _generate_graph_png() -> bool:
 
     _PNG_MTIME = os.path.getmtime(GRAPH_PATH)
     return True
+
+
+# ── Reports (raw monitoring reports) ────────────────────────────────────
+
+@router.get("/{location}/reports", response_model=list[ReportListItem])
+async def list_reports(location: str, limit: int = 5):
+    if not os.path.isdir(REPORTS_DIR):
+        return []
+    files = sorted(
+        [f for f in os.listdir(REPORTS_DIR) if f.startswith("report_") and f.endswith(".md")],
+        reverse=True,
+    )[:limit]
+    result = []
+    for f in files:
+        path = os.path.join(REPORTS_DIR, f)
+        mtime = os.path.getmtime(path)
+        date_str = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
+        result.append(ReportListItem(
+            filename=f,
+            date=date_str,
+            size_bytes=os.path.getsize(path),
+        ))
+    return result
+
+
+@router.get("/{location}/reports/{filename}", response_model=ReportDetail)
+async def get_report(location: str, filename: str):
+    path = os.path.join(REPORTS_DIR, filename)
+    if not os.path.exists(path) or not path.startswith(REPORTS_DIR):
+        raise HTTPException(status_code=404, detail="Report not found")
+    with open(path, encoding="utf-8") as f:
+        content = f.read()
+    fmt = "json" if filename.endswith(".json") else "markdown"
+    mtime = os.path.getmtime(path)
+    date_str = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
+    return ReportDetail(
+        filename=filename,
+        date=date_str,
+        content=content,
+        format=fmt,
+    )

@@ -271,3 +271,16 @@ class GraphiphyCommunity(BaseModel):
     id: int
     size: int
     top_labels: list[str]
+
+
+class ReportListItem(BaseModel):
+    filename: str
+    date: str
+    size_bytes: int
+
+
+class ReportDetail(BaseModel):
+    filename: str
+    date: str
+    content: str
+    format: str  # "markdown" or "json"
