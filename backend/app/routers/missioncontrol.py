@@ -670,6 +670,11 @@ def _re_search(pattern: str, text: str, flags=0):
     return re.search(pattern, text, flags)
 
 
+def _re_first(pattern: str, text: str, flags=0) -> str | None:
+    m = re.search(pattern, text, flags)
+    return m.group(1) if m else None
+
+
 # ── Graphiphy: graph.json loader / cache ───────────────────────────────
 
 GRAPHIFY_DIR = os.environ.get("GRAPHIFY_OUT_DIR", os.path.expanduser("~/graphify-out"))
