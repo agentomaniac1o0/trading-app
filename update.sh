@@ -34,6 +34,10 @@ echo "→ flatpak install..."
 flatpak-builder --repo=repo --force-clean --install --user build-dir \
     app.trading.TradingApp.yml
 
+echo "→ link desktop entry..."
+mkdir -p $HOME/.local/share/applications
+ln -sf $HOME/.local/share/flatpak/exports/share/applications/app.trading.TradingApp.desktop $HOME/.local/share/applications/
+
 echo ""
 echo -e "${GREEN}✓ App bereit:${RESET} flatpak run app.trading.TradingApp"
 echo -e "  Commit: $(git -C "$TRADING_DIR" rev-parse --short HEAD)"
