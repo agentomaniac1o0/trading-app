@@ -591,7 +591,6 @@ def _tcp_service_checks() -> list[LiveServiceCheck]:
         ("Uvicorn (Backend)", "127.0.0.1", 8000),
         ("Flatpak-Repo", "127.0.0.1", 8081),
         ("ComfyUI", "100.111.44.63", 8188),
-        ("FastSD", "100.111.44.63", 7860),
     ]
 
     async def _check(name: str, host: str, port: int) -> LiveServiceCheck:
