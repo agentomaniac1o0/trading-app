@@ -551,9 +551,8 @@ async def get_code_quality(location: str):
 
 @router.get("/{location}/live", response_model=MissioncontrolLive)
 async def get_live(location: str):
-    import subprocess as _sp
+    import asyncio as _aio
 
-    heartbeats = []
     targets = [
         ("pve-1", "100.119.174.53"),
         ("nextcloud", "100.75.220.89"),
@@ -562,22 +561,25 @@ async def get_live(location: str):
         ("image-gen", "100.111.44.63"),
     ]
 
-    for name, host in targets:
+    async def _ping(name: str, host: str) -> LiveHeartbeat:
         try:
-            r = _sp.run(["ping", "-c", "1", "-W", "2", host],
-                        capture_output=True, timeout=3)
-            ok = r.returncode == 0
+            proc = await _aio.create_subprocess_exec(
+                "ping", "-c", "1", "-W", "2", host,
+                stdout=_aio.subprocess.DEVNULL,
+                stderr=_aio.subprocess.DEVNULL,
+            )
+            rc = await _aio.wait_for(proc.wait(), timeout=3)
+            ok = rc == 0
         except Exception:
             ok = False
-        heartbeats.append(LiveHeartbeat(
-            system=name,
-            status="ok" if ok else "critical",
-        ))
+        return LiveHeartbeat(system=name, status="ok" if ok else "critical")
+
+    heartbeats = await _aio.gather(*[_ping(n, h) for n, h in targets])
 
     service_checks = _live_service_checks(location)
 
     return MissioncontrolLive(
-        heartbeats=heartbeats,
+        heartbeats=list(heartbeats),
         service_checks=service_checks,
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
