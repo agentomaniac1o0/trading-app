@@ -570,27 +570,49 @@ async def get_live(location: str):
 
 def _live_service_checks(location: str) -> list[LiveServiceCheck]:
     import asyncio
+    import socket
+    import time
 
     services = [
-        {"name": "Apache", "host": "100.75.220.89", "port": 443},
-        {"name": "MariaDB", "host": "100.75.220.89", "port": 3306},
-        {"name": "Ghost", "host": "192.168.0.172", "port": 2368},
-        {"name": "Uvicorn (Backend)", "host": "127.0.0.1", "port": 8000},
-        {"name": "Flatpak-Repo", "host": "127.0.0.1", "port": 8081},
-        {"name": "ComfyUI", "host": "100.111.44.63", "port": 8188},
-        {"name": "FastSD", "host": "100.111.44.63", "port": 7860},
-        {"name": "MCP-Server", "host": "127.0.0.1", "port": 3000},
+        ("Apache", "100.75.220.89", 443),
+        ("MariaDB", "100.75.220.89", 3306),
+        ("Ghost", "192.168.0.172", 2368),
+        ("Uvicorn (Backend)", "127.0.0.1", 8000),
+        ("Flatpak-Repo", "127.0.0.1", 8081),
+        ("ComfyUI", "100.111.44.63", 8188),
+        ("FastSD", "100.111.44.63", 7860),
+        ("MCP-Server", "127.0.0.1", 3000),
     ]
 
-    results = []
-    for svc in services:
-        online, rt = _tcp_check(svc["host"], svc["port"])
-        results.append(LiveServiceCheck(
-            service=svc["name"],
-            online=online,
-            response_time_ms=rt,
-        ))
-    return results
+    async def _check(name: str, host: str, port: int) -> LiveServiceCheck:
+        start = time.monotonic()
+        try:
+            _, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port), timeout=1.5
+            )
+            writer.close()
+            await writer.wait_closed()
+            rt = int((time.monotonic() - start) * 1000)
+            return LiveServiceCheck(service=name, online=True, response_time_ms=rt)
+        except (asyncio.TimeoutError, OSError, ConnectionRefusedError):
+            return LiveServiceCheck(service=name, online=False, response_time_ms=0)
+
+    async def _run_all():
+        tasks = [_check(n, h, p) for n, h, p in services]
+        return await asyncio.gather(*tasks)
+
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                fut = pool.submit(asyncio.run, _run_all())
+                return fut.result(timeout=5)
+        else:
+            return asyncio.run(_run_all())
+    except Exception:
+        return [LiveServiceCheck(service=n, online=False, response_time_ms=0)
+                for n, _, _ in services]
 
 
 def _tcp_check(host: str, port: int, timeout: float = 2.0) -> tuple[bool, int]:
