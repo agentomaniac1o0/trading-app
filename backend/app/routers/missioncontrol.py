@@ -902,7 +902,7 @@ def _generate_graph_png() -> bool:
         if w >= 5:
             meta.add_edge(str(cu), str(cv), weight=w)
 
-    fig, ax = plt.subplots(figsize=(24, 18), dpi=100, facecolor="#0D1117")
+    fig, ax = plt.subplots(figsize=(24, 18), dpi=200, facecolor="#0D1117")
     ax.set_facecolor("#0D1117")
     pos = nx.spring_layout(meta, k=3, iterations=50, seed=42)
 
@@ -913,13 +913,13 @@ def _generate_graph_png() -> bool:
     nx.draw_networkx_nodes(meta, pos, node_size=node_sizes, node_color=colors,
                            alpha=0.85, edgecolors="#ffffff30", linewidths=0.5, ax=ax)
     nx.draw_networkx_edges(meta, pos, alpha=0.15, edge_color="#3498DB",
-                           width=0.5, ax=ax)
+                           width=0.75, ax=ax)
     nx.draw_networkx_labels(meta, pos,
                             labels={n: meta.nodes[n]["label"] for n in meta.nodes()},
-                            font_size=6, font_color="#c0c0c0", ax=ax)
+                            font_size=7, font_color="#c0c0c0", ax=ax)
     ax.set_axis_off()
     plt.tight_layout(pad=1)
-    plt.savefig(GRAPH_PNG_PATH, dpi=100, bbox_inches="tight",
+    plt.savefig(GRAPH_PNG_PATH, dpi=200, bbox_inches="tight",
                 facecolor="#0D1117", edgecolor="none")
     plt.close()
 
