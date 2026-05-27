@@ -691,8 +691,9 @@ async def get_live(location: str):
 
     if location == "production-center":
         targets = [
-            ("production-center", "100.126.181.63"),
-            ("PBS", "192.168.0.80"),
+            ("proxmox-host", "100.97.55.39"),
+            ("schaltzentrale (VM 100)", "100.126.181.63"),
+            ("PBS (LXC 101)", "192.168.0.80"),
         ]
     else:
         targets = [
