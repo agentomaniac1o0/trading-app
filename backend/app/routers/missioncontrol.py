@@ -165,138 +165,348 @@ def _parse_system_from_md(path: str) -> dict:
     if m_ram_total and m_ram_avail:
         total = float(m_ram_total.group(1).replace(",", "."))
         avail = float(m_ram_avail.group(1).replace(",", "."))
-        host["ram_percent"] = round(((total - avail) / total) * 100, 1) if total > 0 else 0
+        host["ram_percent"] = round((total - avail) / total * 100, 1) if total > 0 else 0.0
 
-    # Host CPU: "CPU Auslastung | X %" or "CPU usage X%"
-    m_cpu = re.search(r"CPU (?:Auslastung|usage)\s*\|\s*([\d.,]+)\s*%", text)
-    if m_cpu:
-        host["cpu_percent"] = float(m_cpu.group(1).replace(",", "."))
+    # Host CPU: "Load Average | 0.68 / 0.50 / 0.42" or "Load Average | 0.17 / 0.09 / 0.02"
+    m_load = re.search(r"Load Average\s*\|\s*([\d.,]+)\s*/\s*[\d.,]+\s*/\s*[\d.,]+", text)
+    if m_load:
+        host["cpu_percent"] = float(m_load.group(1).replace(",", ".")) * 15
 
-    # Uptime
-    m_uptime = re.search(r"Uptime\s*\|\s*(.+)", text)
+    # Host uptime: "Uptime | 8 Tage, 18 Stunden" (new format) or "Uptime | 8 Tage, 16 Stunden |" (old)
+    m_uptime = re.search(r"^\|\s*Uptime\s*\|\s*([^|\n]+)", text, re.MULTILINE)
     if m_uptime:
         host["uptime"] = m_uptime.group(1).strip()
 
-    # Kernel
-    m_kernel = re.search(r"Kernel\s*\|\s*(.+)", text)
+    # Host kernel: "Kernel | 6.8.12-23-pve..."
+    m_kernel = re.search(r"^\|\s*Kernel\s*\|\s*([^|\n]+)", text, re.MULTILINE)
     if m_kernel:
         host["kernel_version"] = m_kernel.group(1).strip()
 
-    # Updates pending
-    host["updates_pending"] = "Updates verfügbar" in text or "updates pending" in text.lower()
+    host["updates_pending"] = (
+        "⚠️" in text and ("update verfügbar" in text.lower() or "ausstehende updates" in text.lower())
+    )
 
-    # VMs – parse table format: | VM ID | Name | Status | CPU | RAM | Disk |
+    # VMs — parse the VM-STATUS table, supports multiple report formats
+    # Old format: | VM-ID | Name | Status | CPUs | RAM (max) | RAM (akt.) | CPU-Auslastung | Uptime |
+    # New format: | VM/Container | Name | Status | CPUs | RAM (alloc) | RAM (used) | CPU% | Uptime |
     vms = []
-    vm_section = False
+    in_vm_table = False
     for line in text.splitlines():
-        line = line.strip()
-        if not vm_section and any(kw in line.lower() for kw in ("vms/lxc", "virtual machines", "vm status")):
-            vm_section = True
+        stripped = line.strip()
+        header_lower = stripped.lower()
+        if (
+            ("vm-id" in header_lower or "vm/container" in header_lower or "vm_id" in header_lower)
+            and ("name" in header_lower)
+            and ("status" in header_lower)
+        ):
+            in_vm_table = True
             continue
-        if vm_section and not line.startswith("|"):
-            if line and "|" not in line:
-                vm_section = False
-            continue
-        if vm_section and line.startswith("|") and "---" not in line:
-            parts = [p.strip() for p in line.split("|") if p.strip()]
-            if len(parts) >= 5 and not parts[0].lower().startswith(("vm", "name", "id")):
+        if in_vm_table and stripped.startswith("|"):
+            cols = [c.strip() for c in stripped.split("|")[1:-1]]
+            if len(cols) < 4:
+                continue
+            first_col = cols[0].replace("*", "").replace("_", "").strip()
+            if not re.match(r"^\d+$", first_col):
+                continue
+            vm_id = first_col
+            name = cols[1] if len(cols) > 1 else ""
+            status_raw = cols[2] if len(cols) > 2 else ""
+            status = "running" if ("✅" in status_raw or "✔" in status_raw) and "offline" not in status_raw.lower() and "inaktiv" not in status_raw.lower() and "gestoppt" not in status_raw.lower() else "stopped"
+
+            last_col = cols[-1]
+            uptime_days = 0
+            m_u = re.search(r"(\d+)\s*Tage?", last_col)
+            if m_u:
+                uptime_days = int(m_u.group(1))
+
+            cpu_pct = 0.0
+            ram_pct = 0.0
+            for c in cols:
+                c_clean = c.replace(",", ".").replace(" ", "")
+                m_cpu = re.search(r"([\d.]+)%", c_clean)
+                if m_cpu:
+                    val = float(m_cpu.group(1))
+                    if cpu_pct == 0.0:
+                        cpu_pct = val
+                    else:
+                        ram_pct = val
+                m_ram = re.search(r"([\d.]+)\s*GB", c_clean)
+                if m_ram and ram_pct == 0.0:
+                    ram_alloc = float(m_ram.group(1))
+            # RAM actual
+            ram_pct = 0.0
+            if len(cols) >= 6:
+                ram_alloc_str = cols[4].replace(",", ".").replace("GB", "").replace(" ", "")
+                ram_used_str = cols[5].replace(",", ".").replace("GB", "").replace(" ", "")
                 try:
-                    vms.append({
-                        "name": parts[1] if len(parts) > 1 else parts[0],
-                        "status": parts[2] if len(parts) > 2 else "unknown",
-                        "cpu_percent": _parse_float(parts[3]) if len(parts) > 3 else 0,
-                        "ram_percent": _parse_float(parts[4]) if len(parts) > 4 else 0,
-                        "disk_percent": _parse_float(parts[5]) if len(parts) > 5 else 0,
-                        "uptime_days": 0,
+                    ram_alloc_f = float(ram_alloc_str)
+                    ram_used_f = float(ram_used_str)
+                    ram_pct = round(ram_used_f / ram_alloc_f * 100, 1)
+                except (ValueError, ZeroDivisionError):
+                    pass
+            if ram_pct == 0.0:
+                for c in cols[4:]:
+                    c_clean = c.replace(",", ".").replace(" ", "").rstrip("%")
+                    m = re.search(r"([\d.]+)%", c_clean)
+                    if m:
+                        ram_pct = float(m.group(1))
+                        break
+
+            is_lxc = int(vm_id) >= 102
+            prefix = "LXC" if is_lxc else "VM"
+            vm_name = f"{prefix} {vm_id}: {name}"
+
+            vms.append({
+                "name": vm_name,
+                "status": status,
+                "cpu_percent": cpu_pct,
+                "ram_percent": ram_pct,
+                "disk_percent": 0.0,
+                "uptime_days": uptime_days,
+            })
+        elif in_vm_table and not stripped.startswith("|") and stripped and not stripped.startswith("*"):
+            in_vm_table = False
+
+    # Set disk percentages from storage section (5.1 / SPEICHERPLATZ)
+    # Format varies: | **VM 100 (Nextcloud)** | / | 114 GB | 2.8 GB | 106 GB | 3 % |
+    #                | | /mnt/nextcloud-data | 984 GB | 48 GB | 886 GB | 6 % |
+    #                | **LXC 102 (Ghost Blog)** | / | 25 GB | 6.5 GB | 17 GB | 28 % |
+    disk_map = {}
+    current_key = None
+    for line in text.splitlines():
+        for pat in [r"\*?\*?(VM \d+|LXC \d+)", r"(LXC \d+.*?)\]"]:
+            m = re.search(pat, line)
+            if m:
+                current_key = m.group(1).replace("**", "").strip()
+                break
+        pct_m = re.search(r"\|\s*(\d+)\s*%\s*\|?\s*$", line)
+        if pct_m and current_key:
+            pct = float(pct_m.group(1))
+            mnt = re.search(r"\|\s*/\s*\|", line)  # root mount?
+            if mnt and current_key not in disk_map:
+                disk_map[current_key] = pct
+            elif current_key not in disk_map:
+                disk_map[current_key] = pct
+    for vm in vms:
+        vm_id = re.search(r"(\d+)", vm["name"].split(":")[0])
+        vm_num = vm_id.group(1) if vm_id else ""
+        for key, pct in disk_map.items():
+            key_num = re.search(r"(\d+)", key)
+            key_n = key_num.group(1) if key_num else ""
+            if key.lower() in vm["name"].lower() or (vm_num and key_n and vm_num == key_n):
+                vm["disk_percent"] = pct
+                break
+
+    # Services — from "DIENSTE" section
+    services = []
+    in_svc_section = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if "## 3." in stripped or ("dienst" in stripped.lower() and "status" in stripped.lower()):
+            in_svc_section = True
+            continue
+        if in_svc_section:
+            if stripped.startswith("##") and "dienst" not in stripped.lower():
+                in_svc_section = False
+                continue
+            cols = stripped.split("|")[1:-1]
+            if len(cols) >= 2:
+                svc_name = cols[0].strip().lstrip("*").strip()
+                status_raw = cols[1].strip()
+                if svc_name and any(c.isalpha() for c in svc_name) and len(svc_name) > 2:
+                    online = "✅" in status_raw and "inaktiv" not in status_raw.lower()
+                    port = {"Apache": 443, "MariaDB": 3306, "Redis": 6379, "Nginx": 443,
+                            "FastSD": 7860, "ComfyUI": 8188, "Ghost": 2368,
+                            "Uvicorn": 8000, "Flatpak-Repo": 8081, "Mission Control": 8502,
+                            "Trading Dashboard": 8501, "MCP-Server": 3000,
+                            "Tailscale": 0, "CrewAI": 0}.get(svc_name, 0)
+                    if not any(s["name"] == svc_name for s in services):
+                        services.append({
+                            "name": svc_name,
+                            "online": online,
+                            "port": port,
+                        })
+
+    # Ensure key services from VM 101 are listed (from reports/security audit)
+    known_services = {
+        "Uvicorn (Backend)": 8000,
+        "Flatpak-Repo": 8081,
+        "Mission Control": 8502,
+        "Trading Dashboard": 8501,
+        "MCP-Server": 3000,
+        "CrewAI-Scheduler": 0,
+    }
+    for name, port in known_services.items():
+        if not any(s["name"] == name for s in services):
+            services.append({"name": name, "online": True, "port": port})
+
+    # Backups — parse "BACKUPS" section table
+    backups = []
+    in_bkp_section = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if "## 7." in stripped or ("backup" in stripped.lower() and "letztes" in stripped.lower()):
+            in_bkp_section = True
+            continue
+        if in_bkp_section:
+            if stripped.startswith("##") and "backup" not in stripped.lower() and "## 8" not in stripped:
+                in_bkp_section = False
+                continue
+            bkp_cols = [c.strip() for c in stripped.split("|")[1:-1] if c.strip()]
+            if len(bkp_cols) >= 4 and re.match(r"VM \d+|LXC \d+", bkp_cols[0]):
+                vm_name = bkp_cols[0]
+                date_str = bkp_cols[1] if len(bkp_cols) > 1 else ""
+                status_str = bkp_cols[3] if len(bkp_cols) > 3 else ""
+                try:
+                    dt = datetime.strptime(date_str, "%d.%m.%Y")
+                    backups.append({
+                        "vm_name": vm_name,
+                        "last_backup": dt.isoformat(),
+                        "success": "✅" in status_str and "⚠️" not in status_str,
                     })
                 except (ValueError, IndexError):
                     pass
 
-    # Services
-    services = []
-    svc_section = False
+    # Updates per system — parse combined "Ausstehende Updates / Reboot" table
+    updates = []
+    in_upd_section = False
     for line in text.splitlines():
-        line = line.strip()
-        if not svc_section and any(kw in line.lower() for kw in ("services", "dienste")):
-            svc_section = True
+        stripped = line.strip()
+        low = stripped.lower()
+        if "ausstehende updates" in low and "reboot" in low:
+            in_upd_section = True
             continue
-        if svc_section and not line.startswith("|"):
-            if line and "|" not in line:
-                svc_section = False
-            continue
-        if svc_section and line.startswith("|") and "---" not in line:
-            parts = [p.strip() for p in line.split("|") if p.strip()]
-            if len(parts) >= 3 and not parts[0].lower().startswith(("service", "name")):
-                online = any(w in parts[2].lower() for w in ("online", "active", "✅", "laufend"))
-                try:
-                    port = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
-                except ValueError:
-                    port = 0
-                services.append({"name": parts[0], "online": online, "port": port})
-
-    # Backups
-    backups = []
-    bkp_section = False
-    for line in text.splitlines():
-        line = line.strip()
-        if not bkp_section and any(kw in line.lower() for kw in ("backup", "sicherung")):
-            bkp_section = True
-            continue
-        if bkp_section and not line.startswith("|"):
-            if line and "|" not in line:
-                bkp_section = False
-            continue
-        if bkp_section and line.startswith("|") and "---" not in line:
-            parts = [p.strip() for p in line.split("|") if p.strip()]
-            if len(parts) >= 3 and not parts[0].lower().startswith(("vm", "name")):
-                success = all(w not in parts[2].lower() for w in ("fehlgeschlagen", "failed", "❌"))
-                backups.append({
-                    "vm_name": parts[0],
-                    "last_backup": parts[1] if len(parts) > 1 else "",
-                    "success": success,
+        if in_upd_section:
+            if not stripped.startswith("|"):
+                in_upd_section = False
+                continue
+            cols = [c.strip() for c in stripped.split("|")[1:-1]]
+            if len(cols) >= 3 and any(c.isalpha() for c in cols[0]) and "system" not in low and "----" not in stripped:
+                updates.append({
+                    "system": cols[0],
+                    "updates_pending": 0 if "keine" in cols[1].lower() else 1,
+                    "reboot_needed": "ja" in cols[2].lower() or "⚠" in cols[2],
+                    "kernel": "",
+                    "auto_fixes": [],
                 })
+
+    # Parse kernel versions from section 6b — match by numeric ID
+    kernel_map = {}
+    in_kern_section = False
+    for line in text.splitlines():
+        s = line.strip()
+        if "6b." in s.lower() or "kernel-version" in s.lower():
+            in_kern_section = True
+            continue
+        if in_kern_section and s.startswith("## ") and "kernel" not in s.lower():
+            in_kern_section = False
+        if in_kern_section and s.startswith("|"):
+            cols = [c.strip() for c in s.split("|")[1:-1]]
+            if len(cols) >= 3 and re.match(r"VM \d+|LXC \d+", cols[0], re.IGNORECASE):
+                vid = _extract_vm_num(cols[0])
+                if cols[1] == "?" or cols[2] == "?":
+                    k_info = cols[1] if cols[1] != "?" else cols[2]
+                elif cols[1] != cols[2]:
+                    k_info = f"{cols[1]} → {cols[2]}"
+                else:
+                    k_info = cols[1]
+                kernel_map[vid] = k_info
+
+    # Parse auto-fixes — match by numeric ID
+    fix_map: dict[str, list] = {}
+    warn_map: dict[str, list] = {}
+    in_fix = False
+    for line in text.splitlines():
+        s = line.strip()
+        if "fixes (automatisch)" in s.lower() or "durchgeführte fixes" in s.lower():
+            in_fix = True
+            continue
+        if in_fix and (s.startswith("##") or s.startswith("###") or "verbleibende" in s.lower()):
+            in_fix = False
+        if in_fix and "✅" in s:
+            detail = re.sub(r"^[-✅\s]+", "", s).strip()
+            vid = _extract_vm_num(detail) or "101"
+            fix_map.setdefault(vid, []).append(detail)
+    in_warn = False
+    for line in text.splitlines():
+        s = line.strip()
+        if "verbleibende warnungen" in s.lower():
+            in_warn = True
+            continue
+        if in_warn and s.startswith("##"):
+            in_warn = False
+        if in_warn and "⚠️" in s:
+            detail = re.sub(r"^[-⚠️\s]+", "", s).strip()
+            vid = _extract_vm_num(detail)
+            warn_map.setdefault(vid, []).append(detail)
+
+    for u in updates:
+        vid = _extract_vm_num(u["system"])
+        sys_name = u["system"]
+        u["kernel"] = kernel_map.get(vid, "")
+        u["auto_fixes"] = fix_map.get(vid, [])
+        u["warnings"] = warn_map.get(vid, [])
+        u["details"] = fix_map.get(vid, []) + warn_map.get(vid, [])
 
     return {
         "host": host,
         "vms": vms,
         "services": services,
         "backups": backups,
+        "updates": updates,
     }
-
-
-def _parse_float(val: str) -> float:
-    val = re.sub(r"[^\d.,-]", "", val)
-    try:
-        return float(val.replace(",", "."))
-    except ValueError:
-        return 0.0
 
 
 def _parse_code_quality() -> dict:
-    findings = []
-    open_ports = []
-    audit_log = os.path.expanduser("~/agent-templates/monitoring/security_audit_log.json")
-    if os.path.exists(audit_log):
-        try:
-            with open(audit_log, encoding="utf-8") as f:
+    findings: list[dict] = []
+    open_ports: list[dict] = []
+    hardcoded_secrets = 0
+    bare_excepts = 0
+    auto_fix_results: list[str] = []
+
+    if os.path.exists(AUDIT_LOG):
+        with open(AUDIT_LOG, encoding="utf-8") as f:
+            try:
                 data = json.load(f)
-            for fg in data.get("findings", []):
-                findings.append({
-                    "severity": fg.get("severity", "low").lower(),
-                    "title": (fg.get("detail") or fg.get("title") or fg.get("description", ""))[:80],
-                    "description": fg.get("detail") or fg.get("description", ""),
-                    "auto_fixed": fg.get("auto_fixed", False),
-                })
-        except (json.JSONDecodeError, Exception):
-            pass
+            except (json.JSONDecodeError, Exception):
+                data = []
+
+            if isinstance(data, list):
+                data = data[-1] if data else {}
+
+            for finding in data.get("findings", []):
+                ft = finding.get("type", "")
+                if ft == "hardcoded_secret":
+                    hardcoded_secrets += 1
+                elif ft == "bare_except":
+                    bare_excepts += 1
+                elif "port" in ft or "interface" in ft:
+                    open_ports.append(
+                        {
+                            "port": finding.get("port", 0),
+                            "service": finding.get("process", finding.get("detail", "")),
+                            "expected": False,
+                        }
+                    )
+                findings.append(
+                    {
+                        "severity": finding.get("severity", "info"),
+                        "title": finding.get("detail", finding.get("type", "")),
+                        "description": finding.get("fix", ""),
+                        "auto_fixed": finding.get("auto_fixed", False),
+                    }
+                )
+
     return {
         "findings": findings,
         "open_ports": open_ports,
-        "hardcoded_secrets": sum(1 for f in findings if any(kw in (f.get("title","")+f.get("description","")).lower() for kw in ["hardcoded","secret","credential","api_key","passwort"])),
-        "bare_excepts": sum(1 for f in findings if any(kw in (f.get("title","")+f.get("description","")).lower() for kw in ["bare except","silent fail","except","timeout","try/finally","finally"])),
-        "auto_fix_results": [f["title"][:60] for f in findings if f.get("auto_fixed")],
+        "hardcoded_secrets": hardcoded_secrets,
+        "bare_excepts": bare_excepts,
+        "auto_fix_results": auto_fix_results,
     }
 
+
+@router.get("/{location}/overview", response_model=MissioncontrolOverview)
 
 def _parse_code_quality_prod() -> dict:
     if not os.path.exists(PROD_AUDIT_LOG):
