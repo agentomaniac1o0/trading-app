@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Trading App
+Comment=Paper Trading & Portfolio Management
+Exec=trading_app
+Icon=app.trading.TradingApp
+Terminal=false
+Type=Application
+Categories=Finance;
+StartupWMClass=trading_app
