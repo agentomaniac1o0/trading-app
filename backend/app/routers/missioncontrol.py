@@ -506,8 +506,6 @@ def _parse_code_quality() -> dict:
     }
 
 
-@router.get("/{location}/overview", response_model=MissioncontrolOverview)
-
 def _parse_code_quality_prod() -> dict:
     if not os.path.exists(PROD_AUDIT_LOG):
         return {"findings": [], "open_ports": [], "hardcoded_secrets": 0, "bare_excepts": 0, "auto_fix_results": []}
