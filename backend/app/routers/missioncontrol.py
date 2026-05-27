@@ -550,6 +550,22 @@ async def get_code_quality(location: str):
 
 
 @router.get("/{location}/live", response_model=MissioncontrolLive)
+async def get_live(location: str):
+    heartbeats = [
+        LiveHeartbeat(system="pve-1", status="ok"),
+        LiveHeartbeat(system="nextcloud", status="ok"),
+        LiveHeartbeat(system="ai-agents", status="ok"),
+        LiveHeartbeat(system="ghost-blog", status="ok"),
+        LiveHeartbeat(system="image-gen", status="ok"),
+    ]
+
+    service_checks = _live_service_checks(location)
+
+    return MissioncontrolLive(
+        heartbeats=heartbeats,
+        service_checks=service_checks,
+        timestamp=datetime.now(timezone.utc).isoformat(),
+    )
 
 
 def _live_service_checks(location: str) -> list[LiveServiceCheck]:
@@ -588,22 +604,6 @@ def _tcp_check(host: str, port: int, timeout: float = 2.0) -> tuple[bool, int]:
         return True, rt
     except (socket.timeout, OSError):
         return False, 0
-async def get_live(location: str):
-    heartbeats = [
-        LiveHeartbeat(system="pve-1", status="ok"),
-        LiveHeartbeat(system="nextcloud", status="ok"),
-        LiveHeartbeat(system="ai-agents", status="ok"),
-        LiveHeartbeat(system="ghost-blog", status="ok"),
-        LiveHeartbeat(system="image-gen", status="ok"),
-    ]
-
-    service_checks = _live_service_checks(location)
-
-    return MissioncontrolLive(
-        heartbeats=heartbeats,
-        service_checks=service_checks,
-        timestamp=datetime.now(timezone.utc).isoformat(),
-    )
 
 
 @router.get("/{location}/health", response_model=HealthScore)
