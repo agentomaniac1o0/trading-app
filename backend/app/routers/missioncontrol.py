@@ -214,7 +214,7 @@ def _parse_system_from_md(path: str) -> dict:
                         ram_pct = float(m.group(1))
                         break
 
-            is_lxc = "LXC" in name.upper() and "VM" not in vm_id.upper()
+            is_lxc = int(vm_id) >= 102
             prefix = "LXC" if is_lxc else "VM"
             vm_name = f"{prefix} {vm_id}: {name}"
 
