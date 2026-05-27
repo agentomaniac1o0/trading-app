@@ -164,6 +164,8 @@ class SysUpdate(BaseModel):
     reboot_needed: bool
     kernel: str
     auto_fixes: list[str]
+    details: list[str] = []
+    warnings: list[str] = []
 
 
 class MissioncontrolSystem(BaseModel):

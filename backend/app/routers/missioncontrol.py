@@ -352,6 +352,64 @@ def _parse_system_from_md(path: str) -> dict:
                     "auto_fixes": [],
                 })
 
+    # Parse kernel versions from section 6b — match by numeric ID
+    kernel_map = {}
+    in_kern_section = False
+    for line in text.splitlines():
+        s = line.strip()
+        if "6b." in s.lower() or "kernel-version" in s.lower():
+            in_kern_section = True
+            continue
+        if in_kern_section and s.startswith("## ") and "kernel" not in s.lower():
+            in_kern_section = False
+        if in_kern_section and s.startswith("|"):
+            cols = [c.strip() for c in s.split("|")[1:-1]]
+            if len(cols) >= 3 and re.match(r"VM \d+|LXC \d+", cols[0], re.IGNORECASE):
+                vid = _extract_vm_num(cols[0])
+                if cols[1] == "?" or cols[2] == "?":
+                    k_info = cols[1] if cols[1] != "?" else cols[2]
+                elif cols[1] != cols[2]:
+                    k_info = f"{cols[1]} → {cols[2]}"
+                else:
+                    k_info = cols[1]
+                kernel_map[vid] = k_info
+
+    # Parse auto-fixes — match by numeric ID
+    fix_map: dict[str, list] = {}
+    warn_map: dict[str, list] = {}
+    in_fix = False
+    for line in text.splitlines():
+        s = line.strip()
+        if "fixes (automatisch)" in s.lower() or "durchgeführte fixes" in s.lower():
+            in_fix = True
+            continue
+        if in_fix and (s.startswith("##") or s.startswith("###") or "verbleibende" in s.lower()):
+            in_fix = False
+        if in_fix and "✅" in s:
+            detail = re.sub(r"^[-✅\s]+", "", s).strip()
+            vid = _extract_vm_num(detail) or "101"
+            fix_map.setdefault(vid, []).append(detail)
+    in_warn = False
+    for line in text.splitlines():
+        s = line.strip()
+        if "verbleibende warnungen" in s.lower():
+            in_warn = True
+            continue
+        if in_warn and s.startswith("##"):
+            in_warn = False
+        if in_warn and "⚠️" in s:
+            detail = re.sub(r"^[-⚠️\s]+", "", s).strip()
+            vid = _extract_vm_num(detail)
+            warn_map.setdefault(vid, []).append(detail)
+
+    for u in updates:
+        vid = _extract_vm_num(u["system"])
+        sys_name = u["system"]
+        u["kernel"] = kernel_map.get(vid, "")
+        u["auto_fixes"] = fix_map.get(vid, [])
+        u["warnings"] = warn_map.get(vid, [])
+        u["details"] = fix_map.get(vid, []) + warn_map.get(vid, [])
+
     return {
         "host": host,
         "vms": vms,
@@ -532,7 +590,11 @@ async def get_health(location: str):
     )
 
 
-def _re_first(pattern: str, text: str):
+def _extract_vm_num(name: str) -> str:
+    for vid in ["100", "101", "102", "103", "104"]:
+        if re.search(rf"\b{vid}\b", name):
+            return vid
+    return ""
     m = re.search(pattern, text)
     return m.group(1) if m else None
 
