@@ -34,9 +34,19 @@ echo "→ flatpak install..."
 flatpak-builder --repo=repo --force-clean --install --user build-dir \
     app.trading.TradingApp.yml
 
-echo "→ link desktop entry..."
+echo "→ desktop entry..."
 mkdir -p $HOME/.local/share/applications
-ln -sf $HOME/.local/share/flatpak/exports/share/applications/app.trading.TradingApp.desktop $HOME/.local/share/applications/
+cat > $HOME/.local/share/applications/tradingapp.desktop << 'DESKTOP'
+[Desktop Entry]
+Name=Trading App
+Comment=Paper Trading & Portfolio Management
+Exec=flatpak run app.trading.TradingApp
+Icon=app.trading.TradingApp
+Terminal=false
+Type=Application
+Categories=Finance;
+StartupWMClass=trading_app
+DESKTOP
 
 echo ""
 echo -e "${GREEN}✓ App bereit:${RESET} flatpak run app.trading.TradingApp"
