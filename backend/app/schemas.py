@@ -111,6 +111,98 @@ class PortfolioReviewResponse(BaseModel):
     assets: list[PortfolioReviewAsset]
 
 
+class HealthScore(BaseModel):
+    score: int
+    level: str
+    vm_health: float
+    service_health: float
+    audit_health: float
+    calculated_at: str
+
+
+class MissioncontrolOverview(BaseModel):
+    status: str
+    last_report: str
+    health_score: int
+    disk_usage: dict[str, float]
+    crew_status: str
+    active_alerts: list[str]
+
+
+class VmStatus(BaseModel):
+    name: str
+    status: str
+    cpu_percent: float
+    ram_percent: float
+    disk_percent: float
+    uptime_days: int
+
+
+class ServiceStatus(BaseModel):
+    name: str
+    online: bool
+    port: int
+
+
+class ProxmoxHost(BaseModel):
+    cpu_percent: float
+    ram_percent: float
+    uptime: str
+    kernel_version: str
+    updates_pending: bool
+
+
+class BackupStatus(BaseModel):
+    vm_name: str
+    last_backup: str
+    success: bool
+
+
+class MissioncontrolSystem(BaseModel):
+    host: ProxmoxHost
+    vms: list[VmStatus]
+    services: list[ServiceStatus]
+    backups: list[BackupStatus]
+
+
+class Finding(BaseModel):
+    severity: str
+    title: str
+    description: str
+    auto_fixed: bool
+
+
+class OpenPort(BaseModel):
+    port: int
+    service: str
+    expected: bool
+
+
+class MissioncontrolCodeQuality(BaseModel):
+    findings: list[Finding]
+    open_ports: list[OpenPort]
+    hardcoded_secrets: int
+    bare_excepts: int
+    auto_fix_results: list[str]
+
+
+class LiveHeartbeat(BaseModel):
+    system: str
+    status: str
+
+
+class LiveServiceCheck(BaseModel):
+    service: str
+    online: bool
+    response_time_ms: int
+
+
+class MissioncontrolLive(BaseModel):
+    heartbeats: list[LiveHeartbeat]
+    service_checks: list[LiveServiceCheck]
+    timestamp: str
+
+
 class LivePosition(BaseModel):
     id: str
     symbol: str

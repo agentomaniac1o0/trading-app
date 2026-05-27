@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     price_cache_ttl: int = 60
     import_trades_path: str = "../data/trades.json"
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 
 settings = Settings()

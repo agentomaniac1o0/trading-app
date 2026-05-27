@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import init_db
-from app.routers import portfolio, prices, reports, trades, traders
+from app.routers import missioncontrol, portfolio, prices, reports, trades, traders
 
 app = FastAPI(
     title="Trading App",
@@ -27,6 +27,7 @@ app.include_router(portfolio.router, prefix="/api")
 app.include_router(prices.router, prefix="/api")
 app.include_router(traders.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
+app.include_router(missioncontrol.router, prefix="/api")
 
 
 @app.on_event("startup")
