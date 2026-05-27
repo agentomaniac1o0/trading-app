@@ -569,6 +569,18 @@ async def get_live(location: str):
 
 
 def _live_service_checks(location: str) -> list[LiveServiceCheck]:
+    results = _tcp_service_checks()
+
+    if location == "home-lab":
+        internal = _report_service_status()
+        for svc in internal:
+            if not any(r.service == svc.service for r in results):
+                results.append(svc)
+
+    return results
+
+
+def _tcp_service_checks() -> list[LiveServiceCheck]:
     import asyncio
     import socket
     import time
@@ -611,6 +623,38 @@ def _live_service_checks(location: str) -> list[LiveServiceCheck]:
     except Exception:
         return [LiveServiceCheck(service=n, online=False, response_time_ms=0)
                 for n, _, _ in services]
+
+
+def _report_service_status() -> list[LiveServiceCheck]:
+    path = _latest_report_path()
+    if not path:
+        return []
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+
+    results = []
+    in_svc_section = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if ("dienst" in stripped.lower() and "status" in stripped.lower()):
+            in_svc_section = True
+            continue
+        if in_svc_section:
+            if stripped.startswith("##") and "dienst" not in stripped.lower():
+                break
+            cols = stripped.split("|")[1:-1]
+            if len(cols) >= 2:
+                svc_name = cols[0].strip().lstrip("*").strip()
+                status_raw = cols[1].strip()
+                if svc_name and any(c.isalpha() for c in svc_name) and len(svc_name) > 2:
+                    online = "✅" in status_raw and "inaktiv" not in status_raw.lower()
+                    if not any(r.service == svc_name for r in results):
+                        results.append(LiveServiceCheck(
+                            service=svc_name,
+                            online=online,
+                            response_time_ms=0,
+                        ))
+    return results
 
 
 def _tcp_check(host: str, port: int, timeout: float = 2.0) -> tuple[bool, int]:
