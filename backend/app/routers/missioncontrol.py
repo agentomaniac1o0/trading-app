@@ -798,21 +798,24 @@ async def get_graphiphy_viz(location: str):
 async def refresh_graphiphy_viz(location: str):
     if not os.path.exists(GRAPH_PATH):
         raise HTTPException(status_code=404, detail="No graph.json found.")
+    results = {"html": False, "png": False}
     try:
         result = subprocess.run(
             ["graphify", "cluster-only", GRAPHIFY_DIR],
             capture_output=True, text=True, timeout=120,
         )
-        ok = os.path.exists(GRAPH_HTML_PATH)
-        return {
-            "success": ok,
-            "output": result.stdout[-500:] if result.stdout else "",
-            "error": result.stderr[-500:] if result.stderr else "",
-        }
+        results["html"] = os.path.exists(GRAPH_HTML_PATH)
     except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="Graph regeneration timed out")
+        pass
     except FileNotFoundError:
-        raise HTTPException(status_code=500, detail="graphify CLI not found in PATH")
+        pass
+
+    try:
+        results["png"] = _generate_graph_png()
+    except HTTPException:
+        pass
+
+    return {"success": any(results.values()), "details": results}
 
 
 @router.get("/{location}/graphiphy/svg")
@@ -825,7 +828,100 @@ async def get_graphiphy_svg(location: str):
 
 @router.get("/{location}/graphiphy/png")
 async def get_graphiphy_png(location: str):
+    if not os.path.exists(GRAPH_PNG_PATH) or _graph_needs_png_refresh():
+        _generate_graph_png()
     if not os.path.exists(GRAPH_PNG_PATH):
-        raise HTTPException(status_code=404, detail="graph.png not generated yet.")
+        raise HTTPException(status_code=404, detail="graph.png could not be generated.")
     with open(GRAPH_PNG_PATH, "rb") as f:
         return Response(content=f.read(), media_type="image/png")
+
+
+_PNG_MTIME: float = 0.0
+
+
+def _graph_needs_png_refresh() -> bool:
+    global _PNG_MTIME
+    if not os.path.exists(GRAPH_PATH):
+        return False
+    json_mtime = os.path.getmtime(GRAPH_PATH)
+    if _PNG_MTIME >= json_mtime:
+        return False
+    _PNG_MTIME = json_mtime
+    return True
+
+
+def _generate_graph_png() -> bool:
+    global _PNG_MTIME
+    try:
+        from collections import Counter, defaultdict
+        import networkx as nx
+        from networkx.readwrite import json_graph
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Missing dependency for PNG generation: {e}. Run: pip install networkx matplotlib",
+        )
+
+    if not os.path.exists(GRAPH_PATH):
+        return False
+    with open(GRAPH_PATH, encoding="utf-8") as f:
+        d = json.load(f)
+
+    comms = defaultdict(list)
+    for n in d.get("nodes", []):
+        c = n.get("community")
+        if c is not None:
+            comms[c].append(n)
+
+    sized = sorted(comms.items(), key=lambda x: len(x[1]), reverse=True)
+    top_comms = dict(sized[:120])
+
+    node_to_community = {}
+    for cid, members in top_comms.items():
+        for n in members:
+            node_to_community[n["id"]] = cid
+
+    meta = nx.Graph()
+    for cid, members in top_comms.items():
+        top_label = members[0]["label"] if members else f"C{cid}"
+        meta.add_node(str(cid), label=top_label[:20])
+
+    edge_counts = Counter()
+    for l in d.get("links", []):
+        s = l.get("source", "")
+        t = l.get("target", "")
+        cu = node_to_community.get(s)
+        cv = node_to_community.get(t)
+        if cu is not None and cv is not None and cu != cv:
+            edge_counts[(min(cu, cv), max(cu, cv))] += 1
+
+    for (cu, cv), w in edge_counts.items():
+        if w >= 5:
+            meta.add_edge(str(cu), str(cv), weight=w)
+
+    fig, ax = plt.subplots(figsize=(24, 18), dpi=100, facecolor="#0D1117")
+    ax.set_facecolor("#0D1117")
+    pos = nx.spring_layout(meta, k=3, iterations=50, seed=42)
+
+    node_sizes = [200 + meta.degree(n) * 30 for n in meta.nodes()]
+    colors = [plt.cm.viridis(i / max(1, len(meta.nodes())))
+              for i in range(len(meta.nodes()))]
+
+    nx.draw_networkx_nodes(meta, pos, node_size=node_sizes, node_color=colors,
+                           alpha=0.85, edgecolors="#ffffff30", linewidths=0.5, ax=ax)
+    nx.draw_networkx_edges(meta, pos, alpha=0.15, edge_color="#3498DB",
+                           width=0.5, ax=ax)
+    nx.draw_networkx_labels(meta, pos,
+                            labels={n: meta.nodes[n]["label"] for n in meta.nodes()},
+                            font_size=6, font_color="#c0c0c0", ax=ax)
+    ax.set_axis_off()
+    plt.tight_layout(pad=1)
+    plt.savefig(GRAPH_PNG_PATH, dpi=100, bbox_inches="tight",
+                facecolor="#0D1117", edgecolor="none")
+    plt.close()
+
+    _PNG_MTIME = os.path.getmtime(GRAPH_PATH)
+    return True
