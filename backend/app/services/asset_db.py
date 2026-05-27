@@ -1,6 +1,9 @@
 ASSET_DB = {
     "Gold":            {"symbol": "GC=F",    "market": "rohstoff"},
     "Silber":          {"symbol": "SI=F",    "market": "rohstoff"},
+    "Platin":          {"symbol": "PL=F",    "market": "rohstoff"},
+    "Palladium":       {"symbol": "PA=F",    "market": "rohstoff"},
+    "Kupfer":          {"symbol": "HG=F",    "market": "rohstoff"},
     "Öl (WTI)":        {"symbol": "CL=F",    "market": "rohstoff"},
     "Erdgas":          {"symbol": "NG=F",    "market": "rohstoff"},
     "Nasdaq 100":      {"symbol": "QQQ",   "market": "technologie"},
@@ -16,6 +19,8 @@ ASSET_DB = {
     "Amazon":          {"symbol": "AMZN",   "market": "technologie"},
     "Apple":           {"symbol": "AAPL",   "market": "technologie"},
     "Tesla":           {"symbol": "TSLA",   "market": "technologie"},
+    "Eli Lilly":       {"symbol": "LLY",    "market": "pharma"},
+    "American Tower":  {"symbol": "AMT",    "market": "technologie"},
     "Nio":             {"symbol": "NIO",    "market": "technologie"},
     "Alibaba":         {"symbol": "BABA",   "market": "technologie"},
     "Energy ETF":      {"symbol": "XLE",    "market": "rohstoff"},
