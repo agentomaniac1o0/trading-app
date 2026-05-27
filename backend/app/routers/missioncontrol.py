@@ -96,12 +96,15 @@ def _parse_report_date(path: str) -> str:
 
 def _compute_score_from_text(text: str) -> int:
     score = 100
-    critical_count = text.lower().count("kritisch") + text.count("🔴")
-    score -= critical_count * 10
-    warning_count = text.count("⚠️") + text.count("⚠")
-    score -= min(warning_count * 2, 20)
+    critical_count = (
+        text.lower().count("kritisch") - text.lower().count("nicht kritisch")
+        + text.count("🔴")
+    )
+    score -= min(critical_count * 5, 30)
+    warning_count = text.count("⚠️")
+    score -= min(warning_count * 2, 15)
     offline_services = text.lower().count("inaktiv") + text.lower().count("gestoppt")
-    score -= offline_services * 5
+    score -= min(offline_services * 3, 10)
     return max(0, min(100, score))
 
 
