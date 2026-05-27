@@ -158,11 +158,20 @@ class BackupStatus(BaseModel):
     success: bool
 
 
+class SysUpdate(BaseModel):
+    system: str
+    updates_pending: int
+    reboot_needed: bool
+    kernel: str
+    auto_fixes: list[str]
+
+
 class MissioncontrolSystem(BaseModel):
     host: ProxmoxHost
     vms: list[VmStatus]
     services: list[ServiceStatus]
     backups: list[BackupStatus]
+    updates: list[SysUpdate] = []
 
 
 class Finding(BaseModel):

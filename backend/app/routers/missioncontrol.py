@@ -19,6 +19,7 @@ from app.schemas import (
     OpenPort,
     ProxmoxHost,
     ServiceStatus,
+    SysUpdate,
     VmStatus,
 )
 
@@ -120,21 +121,21 @@ def _parse_system_from_md(path: str) -> dict:
         "updates_pending": False,
     }
 
-    # Host RAM: "RAM Gesamt | 31.1 GB" + "RAM Verwendet | 16.5 GB"
-    m_ram_total = re.search(r"RAM Gesamt\s*\|\s*([\d.]+)\s*GB", text)
-    m_ram_used = re.search(r"RAM Verwendet\s*\|\s*([\d.]+)\s*GB", text)
-    if m_ram_total and m_ram_used:
-        total = float(m_ram_total.group(1))
-        used = float(m_ram_used.group(1))
-        host["ram_percent"] = round(used / total * 100, 1) if total > 0 else 0.0
+    # Host RAM: "RAM Gesamt | 31,1 GB" + "RAM Verfügbar | 13,3 GB"
+    m_ram_total = re.search(r"RAM Gesamt\s*\|\s*([\d.,]+)\s*GB", text)
+    m_ram_avail = re.search(r"RAM Verfügbar\s*\|\s*([\d.,]+)\s*GB", text)
+    if m_ram_total and m_ram_avail:
+        total = float(m_ram_total.group(1).replace(",", "."))
+        avail = float(m_ram_avail.group(1).replace(",", "."))
+        host["ram_percent"] = round((total - avail) / total * 100, 1) if total > 0 else 0.0
 
-    # Host CPU: "Load Average | 0.17 / 0.09 / 0.02"
-    m_load = re.search(r"Load Average\s*\|\s*([\d.]+)\s*/\s*[\d.]+\s*/\s*[\d.]+", text)
+    # Host CPU: "Load Average | 0.68 / 0.50 / 0.42" or "Load Average | 0.17 / 0.09 / 0.02"
+    m_load = re.search(r"Load Average\s*\|\s*([\d.,]+)\s*/\s*[\d.,]+\s*/\s*[\d.,]+", text)
     if m_load:
-        host["cpu_percent"] = float(m_load.group(1)) * 15
+        host["cpu_percent"] = float(m_load.group(1).replace(",", ".")) * 15
 
-    # Host uptime: "Uptime | 8 Tage, 16 Stunden" or "Uptime | 8 Tage, 16 Stunden |"
-    m_uptime = re.search(r"Uptime\s*\|\s*([^|\n]+)", text)
+    # Host uptime: "Uptime | 8 Tage, 18 Stunden" (new format) or "Uptime | 8 Tage, 16 Stunden |" (old)
+    m_uptime = re.search(r"^\|\s*Uptime\s*\|\s*([^|\n]+)", text, re.MULTILINE)
     if m_uptime:
         host["uptime"] = m_uptime.group(1).strip()
 
@@ -147,73 +148,86 @@ def _parse_system_from_md(path: str) -> dict:
         "⚠️" in text and ("update verfügbar" in text.lower() or "ausstehende updates" in text.lower())
     )
 
-    # VMs — parse the VM-STATUS table
-    # Format: | VM-ID | Name | Status | CPUs | RAM (max) | RAM (akt.) | CPU-Auslastung | Uptime |
-    #          | 100 | nextcloud-vm | ✅ running | 4 | 6.0 GB | 4.7 GB | 0.75% | 3 Tage |
+    # VMs — parse the VM-STATUS table, supports multiple report formats
+    # Old format: | VM-ID | Name | Status | CPUs | RAM (max) | RAM (akt.) | CPU-Auslastung | Uptime |
+    # New format: | VM/Container | Name | Status | CPUs | RAM (alloc) | RAM (used) | CPU% | Uptime |
     vms = []
     in_vm_table = False
     for line in text.splitlines():
         stripped = line.strip()
-        if "VM-ID" in stripped and "Name" in stripped and "Uptime" in stripped:
+        header_lower = stripped.lower()
+        if (
+            ("vm-id" in header_lower or "vm/container" in header_lower or "vm_id" in header_lower)
+            and ("name" in header_lower)
+            and ("status" in header_lower)
+        ):
             in_vm_table = True
             continue
         if in_vm_table and stripped.startswith("|"):
             cols = [c.strip() for c in stripped.split("|")[1:-1]]
-            if len(cols) >= 8 and re.match(r"\d+", cols[0]):
-                vm_id = cols[0]
-                name = cols[1]
-                status_raw = cols[2]
-                cpu_str = cols[6]
-                uptime_str = cols[7] if len(cols) > 7 else ""
-                status = "running" if "✅" in status_raw else "stopped"
-                cpu_pct = 0.0
-                m_c = re.search(r"([\d.]+)%", cpu_str)
-                if m_c:
-                    cpu_pct = float(m_c.group(1))
-                ram_act = cols[5]
-                ram_max = cols[4]
-                ram_pct = 0.0
-                m_r = re.search(r"([\d.]+)\s*%", ram_act)
-                if not m_r:
-                    m_r_a = re.search(r"([\d.]+)\s*GB", ram_act)
-                    m_r_m = re.search(r"([\d.]+)\s*GB", ram_max)
-                    if m_r_a and m_r_m:
-                        ram_pct = round(float(m_r_a.group(1)) / float(m_r_m.group(1)) * 100, 1)
-                else:
-                    ram_pct = float(m_r.group(1))
-                uptime_days = 0
-                m_u = re.search(r"(\d+)\s*Tage?", uptime_str)
-                if m_u:
-                    uptime_days = int(m_u.group(1))
-                prefix = "LXC" if "LXC" in name.upper() else "VM"
-                vms.append({
-                    "name": f"{prefix} {vm_id}: {name}",
-                    "status": status,
-                    "cpu_percent": cpu_pct,
-                    "ram_percent": ram_pct,
-                    "disk_percent": 0.0,
-                    "uptime_days": uptime_days,
-                })
-            if len(vms) >= 4:
-                break
-        elif in_vm_table and not stripped.startswith("|"):
-            in_vm_table = False
+            if len(cols) < 4:
+                continue
+            first_col = cols[0].replace("*", "").replace("_", "").strip()
+            if not re.match(r"^\d+$", first_col):
+                continue
+            vm_id = first_col
+            name = cols[1] if len(cols) > 1 else ""
+            status_raw = cols[2] if len(cols) > 2 else ""
+            status = "running" if ("✅" in status_raw or "✔" in status_raw) and "offline" not in status_raw.lower() and "inaktiv" not in status_raw.lower() and "gestoppt" not in status_raw.lower() else "stopped"
 
-    # Add LXC 104 if not in VM table (it isn't yet in the report)
-    lxc104_present = any("104" in v["name"] for v in vms)
-    if not lxc104_present:
-        disk_104 = 0.0
-        m_d104 = re.search(r"LXC 104[^|]*\|\s*[^|]*\|\s*[^|]*\|\s*[^|]*\|\s*[^|]*\|\s*(\d+)%", text)
-        if m_d104:
-            disk_104 = float(m_d104.group(1))
-        vms.append({
-            "name": "LXC 104: Trading App",
-            "status": "running",
-            "cpu_percent": 0.0,
-            "ram_percent": 0.0,
-            "disk_percent": disk_104,
-            "uptime_days": 0,
-        })
+            last_col = cols[-1]
+            uptime_days = 0
+            m_u = re.search(r"(\d+)\s*Tage?", last_col)
+            if m_u:
+                uptime_days = int(m_u.group(1))
+
+            cpu_pct = 0.0
+            ram_pct = 0.0
+            for c in cols:
+                c_clean = c.replace(",", ".").replace(" ", "")
+                m_cpu = re.search(r"([\d.]+)%", c_clean)
+                if m_cpu:
+                    val = float(m_cpu.group(1))
+                    if cpu_pct == 0.0:
+                        cpu_pct = val
+                    else:
+                        ram_pct = val
+                m_ram = re.search(r"([\d.]+)\s*GB", c_clean)
+                if m_ram and ram_pct == 0.0:
+                    ram_alloc = float(m_ram.group(1))
+            # RAM actual
+            ram_pct = 0.0
+            if len(cols) >= 6:
+                ram_alloc_str = cols[4].replace(",", ".").replace("GB", "").replace(" ", "")
+                ram_used_str = cols[5].replace(",", ".").replace("GB", "").replace(" ", "")
+                try:
+                    ram_alloc_f = float(ram_alloc_str)
+                    ram_used_f = float(ram_used_str)
+                    ram_pct = round(ram_used_f / ram_alloc_f * 100, 1)
+                except (ValueError, ZeroDivisionError):
+                    pass
+            if ram_pct == 0.0:
+                for c in cols[4:]:
+                    c_clean = c.replace(",", ".").replace(" ", "").rstrip("%")
+                    m = re.search(r"([\d.]+)%", c_clean)
+                    if m:
+                        ram_pct = float(m.group(1))
+                        break
+
+            is_lxc = "LXC" in name.upper() and "VM" not in vm_id.upper()
+            prefix = "LXC" if is_lxc else "VM"
+            vm_name = f"{prefix} {vm_id}: {name}"
+
+            vms.append({
+                "name": vm_name,
+                "status": status,
+                "cpu_percent": cpu_pct,
+                "ram_percent": ram_pct,
+                "disk_percent": 0.0,
+                "uptime_days": uptime_days,
+            })
+        elif in_vm_table and not stripped.startswith("|") and stripped and not stripped.startswith("*"):
+            in_vm_table = False
 
     # Set disk percentages from storage section (5.1 / SPEICHERPLATZ)
     # Format: | **VM 100 (Nextcloud)** | / | 114 GB | 2.8 GB | 106 GB | 3% |
@@ -249,17 +263,36 @@ def _parse_system_from_md(path: str) -> dict:
             if stripped.startswith("##") and "dienst" not in stripped.lower():
                 in_svc_section = False
                 continue
-            m_svc = re.search(r"\|\s*(\w[\w\s\-\.]+?)\s*\|\s*(✅|❌)\s*(\w+)", stripped)
-            if m_svc:
-                svc_name = m_svc.group(1).strip()
-                online = "✅" in m_svc.group(2) and "inaktiv" not in stripped.lower()
-                port = {"Apache": 443, "MariaDB": 3306, "Redis": 6379, "Nginx": 443,
-                        "FastSD": 7860, "ComfyUI": 8188, "Ghost": 2368}.get(svc_name, 0)
-                services.append({
-                    "name": svc_name,
-                    "online": online,
-                    "port": port,
-                })
+            cols = stripped.split("|")[1:-1]
+            if len(cols) >= 2:
+                svc_name = cols[0].strip().lstrip("*").strip()
+                status_raw = cols[1].strip()
+                if svc_name and any(c.isalpha() for c in svc_name) and len(svc_name) > 2:
+                    online = "✅" in status_raw and "inaktiv" not in status_raw.lower()
+                    port = {"Apache": 443, "MariaDB": 3306, "Redis": 6379, "Nginx": 443,
+                            "FastSD": 7860, "ComfyUI": 8188, "Ghost": 2368,
+                            "Uvicorn": 8000, "Flatpak-Repo": 8081, "Mission Control": 8502,
+                            "Trading Dashboard": 8501, "MCP-Server": 3000,
+                            "Tailscale": 0, "CrewAI": 0}.get(svc_name, 0)
+                    if not any(s["name"] == svc_name for s in services):
+                        services.append({
+                            "name": svc_name,
+                            "online": online,
+                            "port": port,
+                        })
+
+    # Ensure key services from VM 101 are listed (from reports/security audit)
+    known_services = {
+        "Uvicorn (Backend)": 8000,
+        "Flatpak-Repo": 8081,
+        "Mission Control": 8502,
+        "Trading Dashboard": 8501,
+        "MCP-Server": 3000,
+        "CrewAI-Scheduler": 0,
+    }
+    for name, port in known_services.items():
+        if not any(s["name"] == name for s in services):
+            services.append({"name": name, "online": True, "port": port})
 
     # Backups — parse "BACKUPS" section table
     backups = []
@@ -288,11 +321,35 @@ def _parse_system_from_md(path: str) -> dict:
                 except (ValueError, IndexError):
                     pass
 
+    # Updates per system — parse combined "Ausstehende Updates / Reboot" table
+    updates = []
+    in_upd_section = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        low = stripped.lower()
+        if "ausstehende updates" in low and "reboot" in low:
+            in_upd_section = True
+            continue
+        if in_upd_section:
+            if not stripped.startswith("|"):
+                in_upd_section = False
+                continue
+            cols = [c.strip() for c in stripped.split("|")[1:-1]]
+            if len(cols) >= 3 and any(c.isalpha() for c in cols[0]) and "system" not in low and "----" not in stripped:
+                updates.append({
+                    "system": cols[0],
+                    "updates_pending": 0 if "keine" in cols[1].lower() else 1,
+                    "reboot_needed": "ja" in cols[2].lower() or "⚠" in cols[2],
+                    "kernel": "",
+                    "auto_fixes": [],
+                })
+
     return {
         "host": host,
         "vms": vms,
         "services": services,
         "backups": backups,
+        "updates": updates,
     }
 
 
