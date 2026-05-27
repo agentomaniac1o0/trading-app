@@ -7,7 +7,7 @@ from collections import Counter
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
 from app.schemas import (
     BackupStatus,
@@ -617,6 +617,7 @@ GRAPHIFY_DIR = os.environ.get(
 GRAPH_PATH = os.path.join(GRAPHIFY_DIR, "graph.json")
 GRAPH_HTML_PATH = os.path.join(GRAPHIFY_DIR, "graph.html")
 GRAPH_SVG_PATH = os.path.join(GRAPHIFY_DIR, "graph.svg")
+GRAPH_PNG_PATH = os.path.join(GRAPHIFY_DIR, "graph.png")
 
 _graph_cache: dict | None = None
 _graph_mtime: float = 0.0
@@ -820,3 +821,11 @@ async def get_graphiphy_svg(location: str):
         raise HTTPException(status_code=404, detail="graph.svg not generated yet.")
     with open(GRAPH_SVG_PATH, encoding="utf-8") as f:
         return HTMLResponse(content=f.read(), media_type="image/svg+xml")
+
+
+@router.get("/{location}/graphiphy/png")
+async def get_graphiphy_png(location: str):
+    if not os.path.exists(GRAPH_PNG_PATH):
+        raise HTTPException(status_code=404, detail="graph.png not generated yet.")
+    with open(GRAPH_PNG_PATH, "rb") as f:
+        return Response(content=f.read(), media_type="image/png")
