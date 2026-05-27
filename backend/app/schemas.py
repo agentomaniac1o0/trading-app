@@ -156,6 +156,7 @@ class BackupStatus(BaseModel):
     vm_name: str
     last_backup: str
     success: bool
+    detail: str = ""
 
 
 class SysUpdate(BaseModel):

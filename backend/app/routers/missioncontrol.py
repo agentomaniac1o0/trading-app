@@ -436,6 +436,7 @@ def _build_system_response(system_data: dict, overview: dict) -> MissioncontrolS
             vm_name=b.get("vm_name", ""),
             last_backup=b.get("last_backup", ""),
             success=b.get("success", False),
+            detail=b.get("detail", ""),
         )
         for b in bkp_data
     ]
