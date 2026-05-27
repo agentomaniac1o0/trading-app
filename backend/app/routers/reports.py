@@ -59,6 +59,9 @@ def _parse_judgment(line: str):
 
 
 def _parse_portfolio_review(text: str) -> PortfolioReviewResponse | None:
+    text = re.sub(r'<[^>]+>', '', text)
+    text = text.replace('&nbsp;', ' ').replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
+
     idx = text.find("## PORTFOLIO")
     if idx < 0:
         idx = text.upper().find("PORTFOLIO_REVIEW")
