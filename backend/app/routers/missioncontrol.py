@@ -17,6 +17,8 @@ from app.schemas import (
     GraphiphyNode,
     GraphiphyStats,
     HealthScore,
+    HealthTrendPoint,
+    LiveCriticalCount,
     LiveHeartbeat,
     LiveServiceCheck,
     MissioncontrolCodeQuality,
@@ -1100,4 +1102,37 @@ async def get_report(location: str, filename: str):
         date=date_str,
         content=content,
         format=fmt,
+    )
+
+
+# ── Health Trend + Critical Count ───────────────────────────────────────
+
+@router.get("/{location}/health-trend", response_model=list[HealthTrendPoint])
+async def get_health_trend(location: str):
+    if not os.path.isdir(REPORTS_DIR):
+        return []
+    files = sorted(
+        [f for f in os.listdir(REPORTS_DIR) if f.startswith("report_") and f.endswith(".md")],
+        reverse=True,
+    )[:14]
+    points = []
+    for f in files:
+        path = os.path.join(REPORTS_DIR, f)
+        with open(path, encoding="utf-8") as fh:
+            score = _compute_score_from_text(fh.read())
+        date_match = re.search(r"(\d{4}-\d{2}-\d{2})", f)
+        date_str = date_match.group(1) if date_match else f.replace("report_", "").replace(".md", "")
+        points.append(HealthTrendPoint(date=date_str, score=score))
+    return list(reversed(points))
+
+
+@router.get("/{location}/live/critical-count", response_model=LiveCriticalCount)
+async def get_critical_count(location: str):
+    live = await get_live(location)
+    hb_crit = sum(1 for h in live.heartbeats if h.status == "critical")
+    svc_off = sum(1 for s in live.service_checks if not s.online)
+    return LiveCriticalCount(
+        heartbeat_critical=hb_crit,
+        services_offline=svc_off,
+        total=hb_crit + svc_off,
     )

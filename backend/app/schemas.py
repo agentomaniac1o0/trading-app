@@ -284,3 +284,14 @@ class ReportDetail(BaseModel):
     date: str
     content: str
     format: str  # "markdown" or "json"
+
+
+class HealthTrendPoint(BaseModel):
+    date: str
+    score: int
+
+
+class LiveCriticalCount(BaseModel):
+    heartbeat_critical: int
+    services_offline: int
+    total: int
