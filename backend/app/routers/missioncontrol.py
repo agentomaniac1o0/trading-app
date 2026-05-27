@@ -551,13 +551,28 @@ async def get_code_quality(location: str):
 
 @router.get("/{location}/live", response_model=MissioncontrolLive)
 async def get_live(location: str):
-    heartbeats = [
-        LiveHeartbeat(system="pve-1", status="ok"),
-        LiveHeartbeat(system="nextcloud", status="ok"),
-        LiveHeartbeat(system="ai-agents", status="ok"),
-        LiveHeartbeat(system="ghost-blog", status="ok"),
-        LiveHeartbeat(system="image-gen", status="ok"),
+    import subprocess as _sp
+
+    heartbeats = []
+    targets = [
+        ("pve-1", "100.119.174.53"),
+        ("nextcloud", "100.75.220.89"),
+        ("ai-agents", "127.0.0.1"),
+        ("ghost-blog", "192.168.0.172"),
+        ("image-gen", "100.111.44.63"),
     ]
+
+    for name, host in targets:
+        try:
+            r = _sp.run(["ping", "-c", "1", "-W", "2", host],
+                        capture_output=True, timeout=3)
+            ok = r.returncode == 0
+        except Exception:
+            ok = False
+        heartbeats.append(LiveHeartbeat(
+            system=name,
+            status="ok" if ok else "critical",
+        ))
 
     service_checks = _live_service_checks(location)
 
@@ -905,7 +920,18 @@ async def get_graphiphy_viz(location: str):
 async def refresh_graphiphy_viz(location: str):
     if not os.path.exists(GRAPH_PATH):
         raise HTTPException(status_code=404, detail="No graph.json found.")
-    results = {"html": False, "png": False}
+    results = {"html": False, "png": False, "update_ok": False}
+    try:
+        result = subprocess.run(
+            ["graphify", "update", GRAPHIFY_DIR],
+            capture_output=True, text=True, timeout=120,
+        )
+        results["update_ok"] = result.returncode == 0
+    except subprocess.TimeoutExpired:
+        pass
+    except FileNotFoundError:
+        pass
+
     try:
         result = subprocess.run(
             ["graphify", "cluster-only", GRAPHIFY_DIR],
