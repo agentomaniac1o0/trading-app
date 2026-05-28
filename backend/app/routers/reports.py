@@ -34,7 +34,7 @@ def _find_latest_report() -> str | None:
 
 def _parse_header(line: str):
     line = line.lstrip("\u2022").strip().replace("**", "")
-    m = re.match(r"(.+?)\s*\((\w+)\)\s*\((\w+)\s*x(\d+)\)", line)
+    m = re.match(r"(.+?)\s*\((\w+)\)\s*\((\w+)\s*(?:x)?(\d+)\b", line)
     if not m:
         return None
     name = m.group(1).strip()

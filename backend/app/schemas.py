@@ -142,6 +142,7 @@ class ServiceStatus(BaseModel):
     name: str
     online: bool
     port: int
+    host: str = "pve-1"
 
 
 class ProxmoxHost(BaseModel):

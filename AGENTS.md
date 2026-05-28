@@ -470,3 +470,25 @@ flatpak run app.trading.TradingApp
 - `crew/portfolio_context.py` — Import-Pfad korrigiert
 - `crew/trading_data.py` — aus app/ verschoben
 
+## Session-Log: 2026-05-28 – Netzwerk-Security-Härtung & Bugfixes
+
+### Netzwerk-Bindung (Security Policy)
+- **Regel:** Kein Service bindet an `0.0.0.0` oder `127.0.0.1`. Alle Services binden **ausschließlich an die Tailscale-IP** `100.103.32.107`.
+- **Begründung:** Services sind nur über das Tailscale-Mesh erreichbar — kein LAN/WAN-Zugriff. `127.0.0.1` bricht lokale Prozesse (Crew, Monitoring), `0.0.0.0` exponiert unnötig.
+
+| Port | Service | Bind-Adresse | Systemd-Unit |
+|------|---------|-------------|--------------|
+| 8000 | FastAPI Backend | `100.103.32.107` | `trading-backend.service` |
+| 8081 | Flatpak OSTree Repo | `100.103.32.107` | `trading-repo.service` |
+| 22 | SSH | `100.103.32.107` | (system) |
+
+### TRADING_BACKEND_URL Env-Variable
+- **Datei:** `~/.env` → `TRADING_BACKEND_URL=http://100.103.32.107:8000`
+- **Nutzer:** `trading-crew/crew/portfolio_context.py` liest diese Variable (Fallback: `http://localhost:8000`)
+- **Warum kritisch:** Ohne diese Variable fällt die Crew auf `trades.json` (Stand: Mai 2022) zurück und produziert Portfolio-Reviews mit veralteten/verkauften Assets.
+
+### Portfolio-Review-Parser-Fix
+- **Bug:** Writer-Format-Change: `(SHORT 1 Pos.)` statt `(SHORT x1)` → `_parse_header()`-Regex fand keine Assets
+- **Fix:** `backend/app/routers/reports.py:37` – Regex von `x(\d+)` auf `(?:x)?(\d+)\b` geändert (optionales `x`)
+- **Betroffene Datei:** `backend/app/routers/reports.py`
+

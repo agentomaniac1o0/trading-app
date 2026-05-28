@@ -159,26 +159,34 @@ def _parse_system_from_md(path: str) -> dict:
         "updates_pending": False,
     }
 
-    # Host RAM: "RAM Gesamt | 31,1 GB" + "RAM Verfügbar | 13,3 GB"
-    m_ram_total = re.search(r"RAM Gesamt\s*\|\s*([\d.,]+)\s*GB", text)
-    m_ram_avail = re.search(r"RAM Verfügbar\s*\|\s*([\d.,]+)\s*GB", text)
-    if m_ram_total and m_ram_avail:
-        total = float(m_ram_total.group(1).replace(",", "."))
-        avail = float(m_ram_avail.group(1).replace(",", "."))
+    # Host RAM: new format "RAM (Gesamt/Verfügbar) | 31,1 GB / 17,3 GB verfügbar"
+    #            old format "RAM Gesamt | 31,1 GB" + "RAM Verfügbar | 13,3 GB"
+    m_ram_combined = re.search(r"RAM\s*\(?.+?\)?\s*\|\s*([\d.,]+)\s*GB\s*/\s*\*?\*?([\d.,]+)\s*GB", text)
+    if m_ram_combined:
+        total = float(m_ram_combined.group(1).replace(",", "."))
+        avail = float(m_ram_combined.group(2).replace(",", "."))
         host["ram_percent"] = round((total - avail) / total * 100, 1) if total > 0 else 0.0
+    else:
+        m_ram_total = re.search(r"RAM Gesamt\s*\|\s*([\d.,]+)\s*GB", text)
+        m_ram_avail = re.search(r"RAM (?:Verfügbar|Verfügbar)\s*\|\s*([\d.,]+)\s*GB", text)
+        if m_ram_total and m_ram_avail:
+            total = float(m_ram_total.group(1).replace(",", "."))
+            avail = float(m_ram_avail.group(1).replace(",", "."))
+            host["ram_percent"] = round((total - avail) / total * 100, 1) if total > 0 else 0.0
 
-    # Host CPU: "Load Average | 0.68 / 0.50 / 0.42" or "Load Average | 0.17 / 0.09 / 0.02"
-    m_load = re.search(r"Load Average\s*\|\s*([\d.,]+)\s*/\s*[\d.,]+\s*/\s*[\d.,]+", text)
+    # Host CPU: new format "Load | 0.11 / 0.07 / 0.03 (sehr gering)"
+    #            old format "Load Average | 0.68 / 0.50 / 0.42"
+    m_load = re.search(r"\*?\*?Load(?: Average)?\*?\*?\s*\|\s*([\d.,]+)\s*/\s*[\d.,]+\s*/\s*[\d.,]+", text)
     if m_load:
         host["cpu_percent"] = float(m_load.group(1).replace(",", ".")) * 15
 
-    # Host uptime: "Uptime | 8 Tage, 18 Stunden" (new format) or "Uptime | 8 Tage, 16 Stunden |" (old)
-    m_uptime = re.search(r"^\|\s*Uptime\s*\|\s*([^|\n]+)", text, re.MULTILINE)
+    # Host uptime: handles "| Uptime | 9 Tage, 16 Stunden |" and "| **Uptime** | 9 Tage, 16 Stunden |"
+    m_uptime = re.search(r"\|\s*\*?\*?Uptime\*?\*?\s*\|\s*([^|\n]+)", text)
     if m_uptime:
         host["uptime"] = m_uptime.group(1).strip()
 
-    # Host kernel: "Kernel | 6.8.12-23-pve..."
-    m_kernel = re.search(r"^\|\s*Kernel\s*\|\s*([^|\n]+)", text, re.MULTILINE)
+    # Host kernel: handles "| Kernel | 6.8.12..." and "| **Kernel** | Linux 6.8.12..."
+    m_kernel = re.search(r"\|\s*\*?\*?Kernel\*?\*?\s*\|\s*(?:Linux\s+)?([^|\n]+)", text)
     if m_kernel:
         host["kernel_version"] = m_kernel.group(1).strip()
 
@@ -195,7 +203,8 @@ def _parse_system_from_md(path: str) -> dict:
         stripped = line.strip()
         header_lower = stripped.lower()
         if (
-            ("vm-id" in header_lower or "vm/container" in header_lower or "vm_id" in header_lower)
+            ("vm-id" in header_lower or "vm/container" in header_lower or "vm_id" in header_lower
+             or re.search(r'^\|\s*vm\s*\|', stripped, re.IGNORECASE))
             and ("name" in header_lower)
             and ("status" in header_lower)
         ):
@@ -211,7 +220,7 @@ def _parse_system_from_md(path: str) -> dict:
             vm_id = first_col
             name = cols[1] if len(cols) > 1 else ""
             status_raw = cols[2] if len(cols) > 2 else ""
-            status = "running" if ("✅" in status_raw or "✔" in status_raw) and "offline" not in status_raw.lower() and "inaktiv" not in status_raw.lower() and "gestoppt" not in status_raw.lower() else "stopped"
+            status = "running" if ("✅" in status_raw or "✔" in status_raw or "🟢" in status_raw) and "offline" not in status_raw.lower() and "inaktiv" not in status_raw.lower() and "gestoppt" not in status_raw.lower() else "stopped"
 
             last_col = cols[-1]
             uptime_days = 0
@@ -279,7 +288,7 @@ def _parse_system_from_md(path: str) -> dict:
             if m:
                 current_key = m.group(1).replace("**", "").strip()
                 break
-        pct_m = re.search(r"\|\s*(\d+)\s*%\s*\|?\s*$", line)
+        pct_m = re.search(r"\|\s*\*?\*?(\d+)\s*%\*?\*?\s*\|", line)
         if pct_m and current_key:
             pct = float(pct_m.group(1))
             mnt = re.search(r"\|\s*/\s*\|", line)  # root mount?
@@ -300,10 +309,17 @@ def _parse_system_from_md(path: str) -> dict:
     # Services — from "DIENSTE" section
     services = []
     in_svc_section = False
+    svc_host = "pve-1"  # default
     for line in text.splitlines():
         stripped = line.strip()
-        if "## 3." in stripped or ("dienst" in stripped.lower() and "status" in stripped.lower()):
+        if stripped.startswith("##") and ("## 3." in stripped or ("dienst" in stripped.lower() and "status" in stripped.lower())):
             in_svc_section = True
+            # Extract host info from heading: e.g. "DIENSTE (VM 100 – Nextcloud)"
+            host_m = re.search(r'\((VM \d+|LXC \d+|pve-\d+).*?[–\-]\s*(.+?)\)', stripped)
+            if host_m:
+                svc_host = f"{host_m.group(1)} – {host_m.group(2).strip()}"
+            elif re.search(r'\((VM \d+|LXC \d+|pve-\d+)\)', stripped):
+                svc_host = re.search(r'\((VM \d+|LXC \d+|pve-\d+)\)', stripped).group(1)
             continue
         if in_svc_section:
             if stripped.startswith("##") and "dienst" not in stripped.lower():
@@ -313,8 +329,16 @@ def _parse_system_from_md(path: str) -> dict:
             if len(cols) >= 2:
                 svc_name = cols[0].strip().lstrip("*").strip()
                 status_raw = cols[1].strip()
+                # Skip table headers/separators and non-service rows
+                if svc_name in ("Dienst", "Priorität", "---", "") or "---" in svc_name:
+                    continue
                 if svc_name and any(c.isalpha() for c in svc_name) and len(svc_name) > 2:
-                    online = "✅" in status_raw and "inaktiv" not in status_raw.lower()
+                    online = ("✅" in status_raw or "🟢" in status_raw) and "inaktiv" not in status_raw.lower()
+                    # Services with "–" status but have a version reported → running
+                    if not online and len(cols) >= 3:
+                        version = cols[2].strip()
+                        if version and version != "–" and not version.lower().startswith("n/a"):
+                            online = True
                     port = {"Apache": 443, "MariaDB": 3306, "Redis": 6379, "Nginx": 443,
                             "FastSD": 7860, "ComfyUI": 8188, "Ghost": 2368,
                             "Uvicorn": 8000, "Flatpak-Repo": 8081, "Mission Control": 8502,
@@ -325,20 +349,22 @@ def _parse_system_from_md(path: str) -> dict:
                             "name": svc_name,
                             "online": online,
                             "port": port,
+                            "host": svc_host,
                         })
 
     # Ensure key services from VM 101 are listed (from reports/security audit)
     known_services = {
-        "Uvicorn (Backend)": 8000,
-        "Flatpak-Repo": 8081,
-        "Mission Control": 8502,
-        "Trading Dashboard": 8501,
-        "MCP-Server": 3000,
-        "CrewAI-Scheduler": 0,
+        "Uvicorn (Backend)": (8000, "VM 101 – AI Agents"),
+        "Flatpak-Repo": (8081, "VM 101 – AI Agents"),
+        "Mission Control": (8502, "VM 101 – AI Agents"),
+        "Trading Dashboard": (8501, "VM 101 – AI Agents"),
+        "MCP-Server": (3000, "VM 101 – AI Agents"),
+        "CrewAI-Scheduler": (0, "VM 101 – AI Agents"),
+        "Ghost Blog": (80, "LXC 102 – Ghost Blog"),
     }
-    for name, port in known_services.items():
+    for name, (svc_port, svc_host_name) in known_services.items():
         if not any(s["name"] == name for s in services):
-            services.append({"name": name, "online": True, "port": port})
+            services.append({"name": name, "online": True, "port": svc_port, "host": svc_host_name})
 
     # Backups — parse "BACKUPS" section table
     backups = []
@@ -767,7 +793,7 @@ def _tcp_service_checks(location: str = "home-lab") -> list[LiveServiceCheck]:
             ("SSH (pve-1)", "100.119.174.53", 22),
             ("Nextcloud HTTPS", "100.75.220.89", 443),
             ("Proxmox Web", "100.119.174.53", 8006),
-            ("Ghost Blog", "192.168.0.172", 2368),
+            ("Ghost Blog", "192.168.0.172", 80),
         ]
 
     results = []
@@ -806,7 +832,7 @@ def _tcp_check(host: str, port: int, timeout: float = 2.0) -> tuple[bool, int]:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(timeout)
         s.connect((host, port))
-        elapsed = int((time.monotonic() - start) * 1000)
+        elapsed = max(1, round((time.monotonic() - start) * 1000))
         s.close()
         return True, elapsed
     except Exception:
