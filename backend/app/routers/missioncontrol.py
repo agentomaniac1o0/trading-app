@@ -1330,3 +1330,84 @@ async def get_critical_count(location: str):
     hb_crit = sum(1 for h in live.heartbeats if h.status == "critical")
     svc_off = sum(1 for s in live.service_checks if not s.online)
     return LiveCriticalCount(heartbeat_critical=hb_crit, services_offline=svc_off, total=hb_crit + svc_off)
+
+
+# ── Trading Reports (from trading-crew) ────────────────────────────────────
+
+TRADING_REPORTS_DIR = os.path.expanduser("~/trading-crew/data/reports")
+
+
+@router.get("/{location}/trading-reports", response_model=list[ReportListItem])
+async def list_trading_reports(location: str, limit: int = 5):
+    """List trading reports from trading-crew/data/reports/"""
+    if not os.path.isdir(TRADING_REPORTS_DIR):
+        return []
+    
+    all_files = []
+    for f in os.listdir(TRADING_REPORTS_DIR):
+        if f.startswith("report_") and (f.endswith(".json") or f.endswith(".txt")):
+            all_files.append(f)
+    
+    # Sort by modification time (newest first)
+    all_files.sort(key=lambda f: os.path.getmtime(os.path.join(TRADING_REPORTS_DIR, f)), reverse=True)
+    
+    # Take first 'limit' files
+    files = all_files[:limit]
+    result = []
+    
+    for f in files:
+        path = os.path.join(TRADING_REPORTS_DIR, f)
+        try:
+            mtime = os.path.getmtime(path)
+            date_str = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
+            
+            # Try to extract title from JSON content or use filename
+            title = f.replace("report_", "").replace(".json", "").replace(".txt", "")
+            if f.endswith(".json"):
+                try:
+                    with open(path, encoding="utf-8") as fh:
+                        data = json.load(fh)
+                        if "date" in data:
+                            title = f"Trading Report - {data['date']}"
+                        else:
+                            title = "Trading Report"
+                except (json.JSONDecodeError, Exception):
+                    pass
+            elif f.endswith(".txt"):
+                title = "Market Analysis"
+            
+            result.append(ReportListItem(
+                filename=f, 
+                date=date_str, 
+                size_bytes=os.path.getsize(path),
+                title=title
+            ))
+        except Exception:
+            # Skip files that can't be processed
+            continue
+    
+    return result
+
+
+@router.get("/{location}/trading-reports/{filename}", response_model=ReportDetail)
+async def get_trading_report(location: str, filename: str):
+    """Get a specific trading report content"""
+    path = os.path.join(TRADING_REPORTS_DIR, filename)
+    
+    # Security check: ensure path is within reports directory
+    if not os.path.exists(path) or not path.startswith(TRADING_REPORTS_DIR):
+        raise HTTPException(status_code=404, detail="Trading report not found")
+    
+    try:
+        with open(path, encoding="utf-8") as f:
+            content = f.read()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading report: {str(e)}")
+    
+    # Determine format
+    fmt = "json" if filename.endswith(".json") else "html" if filename.endswith(".txt") else "text"
+    
+    mtime = os.path.getmtime(path)
+    date_str = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
+    
+    return ReportDetail(filename=filename, date=date_str, content=content, format=fmt)

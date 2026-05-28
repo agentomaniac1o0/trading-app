@@ -279,6 +279,7 @@ class ReportListItem(BaseModel):
     filename: str
     date: str
     size_bytes: int
+    title: str = ""  # Optional title field
 
 
 class ReportDetail(BaseModel):
