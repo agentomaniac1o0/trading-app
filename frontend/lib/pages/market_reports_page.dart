@@ -162,9 +162,12 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
             ? '$reportDate at $reportTime'
             : reportDate;
 
-        final isHtml = content.trimLeft().startsWith('<div') ||
-            content.trimLeft().startsWith('<h2') ||
-            content.trimLeft().startsWith('<h1');
+        final trimmed = content.trimLeft();
+        final isHtml = trimmed.startsWith('<div') ||
+            trimmed.startsWith('<h2') ||
+            trimmed.startsWith('<h1') ||
+            trimmed.startsWith('<p') ||
+            trimmed.startsWith('<!--');
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,6 +284,10 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
             ),
           );
         }
+        final dateDisplay = review.reportTime != null
+            ? '${review.reportDate} at ${review.reportTime}'
+            : review.reportDate;
+
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -305,7 +312,17 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 12),
+                child: Text(
+                  'Report: $dateDisplay',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
               PortfolioReviewCard(review: review),
             ],
           ),
