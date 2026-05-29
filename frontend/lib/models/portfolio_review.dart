@@ -54,16 +54,19 @@ class PortfolioReviewAsset {
 
 class PortfolioReview {
   final String reportDate;
+  final String? reportTime;
   final List<PortfolioReviewAsset> assets;
 
   const PortfolioReview({
     required this.reportDate,
+    this.reportTime,
     required this.assets,
   });
 
   factory PortfolioReview.fromJson(Map<String, dynamic> json) {
     return PortfolioReview(
       reportDate: json['report_date'] as String,
+      reportTime: json['report_time'] as String?,
       assets: (json['assets'] as List)
           .map((e) => PortfolioReviewAsset.fromJson(e as Map<String, dynamic>))
           .toList(),
