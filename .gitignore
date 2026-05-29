@@ -43,3 +43,9 @@ data/trades.json
 # Node (if any tooling)
 node_modules/
 graphify-out/
+
+# Flatpak build artifacts
+flatpak/.flatpak-builder/
+flatpak/repo/objects/
+flatpak/repo/summaries/
+flatpak/repo/refs/

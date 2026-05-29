@@ -108,6 +108,7 @@ class PortfolioReviewAsset(BaseModel):
 
 class PortfolioReviewResponse(BaseModel):
     report_date: str
+    report_time: str | None = None
     assets: list[PortfolioReviewAsset]
 
 
@@ -176,6 +177,7 @@ class MissioncontrolSystem(BaseModel):
     services: list[ServiceStatus]
     backups: list[BackupStatus]
     updates: list[SysUpdate] = []
+    last_report: str = ""
 
 
 class Finding(BaseModel):

@@ -74,8 +74,14 @@ def _latest_report_path(location: str = "home-lab") -> str | None:
         files = glob.glob(pattern)
         if files:
             files.sort(key=os.path.getmtime, reverse=True)
-            return files[0]
+            for f in files:
+                if os.path.getsize(f) > 200:
+                    return f
     return None
+
+
+def _report_mtime(path: str) -> str:
+    return datetime.fromtimestamp(os.path.getmtime(path), tz=timezone.utc).isoformat()
 
 
 def _parse_markdown_report(path: str) -> dict:
@@ -606,7 +612,8 @@ async def get_system(location: str):
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
             return _build_system_response(data.get("system", data), data.get("overview", {}))
-        return MissioncontrolSystem(**_parse_system_from_md(path))
+        parsed = _parse_system_from_md(path)
+        return MissioncontrolSystem(**parsed, last_report=_report_mtime(path))
 
     if location != "home-lab":
         return _empty_system()
@@ -620,13 +627,15 @@ async def get_system(location: str):
             data = json.load(f)
         return _build_system_response(data.get("system", data), data.get("overview", {}))
 
-    return MissioncontrolSystem(**_parse_system_from_md(path))
+    parsed = _parse_system_from_md(path)
+    return MissioncontrolSystem(**parsed, last_report=_report_mtime(path))
 
 
 def _empty_system():
     return MissioncontrolSystem(
         host=ProxmoxHost(cpu_percent=0, ram_percent=0, uptime="", kernel_version="", updates_pending=False),
         vms=[], services=[], backups=[],
+        last_report="",
     )
 
 
@@ -689,7 +698,12 @@ def _build_system_response(system_data: dict, overview: dict) -> MissioncontrolS
         for u in updates_data
     ]
 
-    return MissioncontrolSystem(host=host, vms=vms, services=services, backups=backups, updates=sys_updates)
+    report_dt = overview.get("last_report", "")
+    if not report_dt:
+        rd = overview.get("report_date", "")
+        rt = overview.get("report_time", "00:00")
+        report_dt = f"{rd}T{rt}:00" if rd else ""
+    return MissioncontrolSystem(host=host, vms=vms, services=services, backups=backups, updates=sys_updates, last_report=report_dt)
 
 
 # ── Code Quality ────────────────────────────────────────────────────────
