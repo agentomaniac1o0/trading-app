@@ -199,6 +199,7 @@ class MissioncontrolCodeQuality(BaseModel):
     hardcoded_secrets: int
     bare_excepts: int
     auto_fix_results: list[str]
+    last_report: str = ""
 
 
 class LiveHeartbeat(BaseModel):

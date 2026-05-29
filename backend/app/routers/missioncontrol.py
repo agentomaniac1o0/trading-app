@@ -495,6 +495,20 @@ def _parse_code_quality() -> dict:
     hardcoded_secrets = 0
     bare_excepts = 0
     auto_fix_results: list[str] = []
+    last_report = ""
+
+    # report_time aus dem neuesten Report-JSON holen
+    latest = _latest_report_path("home-lab")
+    if latest and latest.endswith(".json"):
+        try:
+            with open(latest, encoding="utf-8") as f:
+                top = json.load(f)
+            rd = top.get("report_date", "")
+            rt = top.get("report_time", "00:00")
+            if rd:
+                last_report = f"{rd}T{rt}:00"
+        except Exception:
+            pass
 
     if os.path.exists(AUDIT_LOG):
         with open(AUDIT_LOG, encoding="utf-8") as f:
@@ -535,6 +549,7 @@ def _parse_code_quality() -> dict:
         "hardcoded_secrets": hardcoded_secrets,
         "bare_excepts": bare_excepts,
         "auto_fix_results": auto_fix_results,
+        "last_report": last_report,
     }
 
 
@@ -611,7 +626,7 @@ async def get_system(location: str):
         if path.endswith(".json"):
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
-            return _build_system_response(data.get("system", data), data.get("overview", {}))
+            return _build_system_response(data.get("system", data), data.get("overview", {}), top=data)
         parsed = _parse_system_from_md(path)
         return MissioncontrolSystem(**parsed, last_report=_report_mtime(path))
 
@@ -625,7 +640,7 @@ async def get_system(location: str):
     if path.endswith(".json"):
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
-        return _build_system_response(data.get("system", data), data.get("overview", {}))
+        return _build_system_response(data.get("system", data), data.get("overview", {}), top=data)
 
     parsed = _parse_system_from_md(path)
     return MissioncontrolSystem(**parsed, last_report=_report_mtime(path))
@@ -639,7 +654,7 @@ def _empty_system():
     )
 
 
-def _build_system_response(system_data: dict, overview: dict) -> MissioncontrolSystem:
+def _build_system_response(system_data: dict, overview: dict, top: dict | None = None) -> MissioncontrolSystem:
     host_data = system_data.get("host", {})
     vms_data = system_data.get("vms", [])
     svc_data = system_data.get("services", [])
@@ -700,8 +715,8 @@ def _build_system_response(system_data: dict, overview: dict) -> MissioncontrolS
 
     report_dt = overview.get("last_report", "")
     if not report_dt:
-        rd = overview.get("report_date", "")
-        rt = overview.get("report_time", "00:00")
+        rd = overview.get("report_date", "") or (top or {}).get("report_date", "")
+        rt = overview.get("report_time", "00:00") or (top or {}).get("report_time", "00:00")
         report_dt = f"{rd}T{rt}:00" if rd else ""
     return MissioncontrolSystem(host=host, vms=vms, services=services, backups=backups, updates=sys_updates, last_report=report_dt)
 
