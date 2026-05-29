@@ -378,7 +378,7 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
 
 String _resolveAvatarPaths(String html) {
   return html.replaceAllMapped(
-    RegExp(r'<img\s+src="avatars/([^"]+)"\s+style="([^"]*)"\s*/>'),
+    RegExp(r'<img\s+src="avatars/([^"]+)"\s+style="([^"]*)"\s*/?>'),
     (m) {
       final name = m.group(1)!.replaceAll('.png', '');
       return '<span style="${m.group(2)}">&#x25CF;</span>';
