@@ -1,0 +1,24 @@
+#!/bin/bash
+# post-commit hook: Create review-pending flag file for opencode agents
+REVIEW_FLAG="/tmp/.opencode-review-pending"
+REPO_DIR=$(git rev-parse --show-toplevel 2>/dev/null || echo "unknown")
+REPO_NAME=$(basename "$REPO_DIR")
+COMMIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+COMMIT_MSG=$(git log -1 --format="%s" 2>/dev/null || echo "unknown")
+COMMIT_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null || true)
+
+HAS_PY=$(echo "$COMMIT_FILES" | grep -c '\.py$' 2>/dev/null || echo "0")
+HAS_DART=$(echo "$COMMIT_FILES" | grep -c '\.dart$' 2>/dev/null || echo "0")
+
+echo "[$REPO_NAME] commit $COMMIT_HASH: $COMMIT_MSG" >> "$REVIEW_FLAG"
+
+if [ "$HAS_PY" -gt 0 ]; then
+    echo "  → Python files changed ($HAS_PY): security-reviewer + silent-failure-hunter recommended" >> "$REVIEW_FLAG"
+fi
+
+if [ "$HAS_DART" -gt 0 ]; then
+    echo "  → Dart files changed ($HAS_DART): code-cleanup recommended" >> "$REVIEW_FLAG"
+fi
+
+echo "  Run review agents: /code-cleanup $REPO_DIR" >> "$REVIEW_FLAG"
+echo "" >> "$REVIEW_FLAG"

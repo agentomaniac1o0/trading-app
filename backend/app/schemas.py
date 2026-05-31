@@ -96,6 +96,27 @@ class PortfolioJudgment(BaseModel):
     reason: str
 
 
+class TraderJudgmentCreate(BaseModel):
+    symbol: str
+    direction: str
+    trader: str
+    judgment: str
+    reason: str
+
+
+class TraderJudgmentResponse(BaseModel):
+    id: str
+    symbol: str
+    direction: str
+    trader: str
+    judgment: str
+    reason: str
+    source: str
+    created_at: str
+
+    model_config = {"from_attributes": True}
+
+
 class PortfolioReviewAsset(BaseModel):
     name: str
     symbol: str

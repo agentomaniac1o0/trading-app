@@ -7,7 +7,7 @@ final portfolioReviewProvider = FutureProvider<PortfolioReview?>((ref) async {
   final client = ref.watch(apiClientProvider);
   try {
     final response = await client.get(
-      '/api/reports/portfolio-review',
+      '/api/portfolio/review',
       options: Options(headers: {'Cache-Control': 'no-cache'}),
     );
     if (response.data == null) return null;

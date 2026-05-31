@@ -2,30 +2,38 @@
 
 ## Projektziel
 
-Cross-Platform Trading App (FastAPI + Flutter) mit Paper Trading und Erweiterungsoption auf Live-Trading.
+Cross-Platform Trading App (FastAPI + Flutter) mit Paper Trading und Erweiterungsoption auf Live-Trading. Das Backend dient **beiden Frontends**: Trading App (Flutter) und Mission Control App (separates Flutter-Projekt in `~/missioncontrol-app/`).
 
 **Repo:** `~/trading-app/` (öffentlich auf GitHub)
-**Deployment:** LXC 104 auf pve-1 (Debian 13, 4 GB RAM, 20 GB Disk)
+**Deployment:** ai-agents VM (CachyOS) — Tailscale-Only-Binding an `100.103.32.107`
 
 ## Architektur
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  Flutter Frontend (Web + Mobile)                      │
-│  Riverpod state · fl_chart · go_router · dio         │
-│  Port 8080 (web) / Native (Android/iOS/Desktop)      │
-└────────────────────────┬────────────────────────────┘
-                         │ HTTP/JSON
-┌────────────────────────▼────────────────────────────┐
-│  FastAPI Backend                                      │
-│  SQLAlchemy async · Alembic · yfinance · ccxt         │
-│  Port 8000                                            │
-└────────────────────────┬────────────────────────────┘
-                         │
-┌────────────────────────▼────────────────────────────┐
-│  SQLite Database (trading.db)                         │
-│  trades · settings · assets · predictions             │
-└───────────────────────────────────────────────────────┘
+┌───────────────────────┐  ┌───────────────────────┐
+│  Trading App (Flutter) │  │  Mission Control (Flutter)│
+│  Paper Trading + Reports│  │  Monitoring + Graphiphy │
+│  Port 8080 / Native    │  │  Separates Repo          │
+└───────────┬───────────┘  └───────────┬─────────────┘
+            │ HTTP/JSON                │ HTTP/JSON
+┌───────────▼─────────────────────────▼──────────────┐
+│  FastAPI Backend (Port 8000, Tailscale-Only)          │
+│                                                         │
+│  Trading: trades · portfolio · prices · traders         │
+│           reports · judgments                           │
+│  Mission Control: overview · system · live · health     │
+│                    code-quality · reports · graphiphy    │
+│                                                         │
+│  SQLAlchemy async · Alembic · yfinance · ccxt          │
+│  networkx · matplotlib (Graph PNG)                     │
+└───────────────────────┬──────────────────────────────┘
+                          │
+┌─────────────────────────▼─────────────────────────────┐
+│  SQLite Database (trading.db)                            │
+│  trades · settings · trader_judgments                    │
+│  + Monitoring-Reports (filesystem: ~/agent-templates/)  │
+│  + Graphiphy graph.json (filesystem: ~/graphify-out/)  │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ## Technologie-Stack
@@ -36,10 +44,13 @@ Cross-Platform Trading App (FastAPI + Flutter) mit Paper Trading und Erweiterung
 | DB ORM | SQLAlchemy | 2.0+ (async) |
 | Migrationen | Alembic | 1.13+ |
 | Preise | yfinance + ccxt | latest |
+| Graph-Generierung | networkx + matplotlib | latest |
 | Frontend | Flutter | 3.24+ |
 | State | Riverpod | 2.5+ |
 | HTTP | Dio | 5.0+ |
 | Charts | fl_chart | 0.69+ |
+| HTML-Rendering | flutter_html | ^3.0.0-beta.2 |
+| Markdown | flutter_markdown | ^0.7.0 |
 | Local DB | drift (sqflite) | 2.20+ |
 
 ## CI-Farben
@@ -59,40 +70,55 @@ Cross-Platform Trading App (FastAPI + Flutter) mit Paper Trading und Erweiterung
 trading-app/
 ├── AGENTS.md              # Diese Datei
 ├── ROADMAP.md
+├── update.sh              # One-Command Update (git pull → build → flatpak)
 ├── .gitignore
 ├── backend/
 │   ├── pyproject.toml
 │   ├── alembic/
 │   ├── alembic.ini
+│   ├── static/
+│   │   └── avatars/        # Trader-Avatare (PNG, über /static/avatars/ served)
+│   │       ├── buffett.png, lynch.png, soros.png
+│   │       ├── wood.png, saylor.png, planb.png
+│   ├── tests/
 │   └── app/
-│       ├── main.py
+│       ├── main.py          # FastAPI-App, CORS, Router-Registrierung
 │       ├── config.py
 │       ├── database.py
-│       ├── models.py
-│       ├── schemas.py
+│       ├── models.py         # Trade, Setting, TraderJudgment
+│       ├── schemas.py        # Pydantic-Schemas (324 Zeilen, Trading + Mission Control)
 │       ├── crud.py
 │       ├── routers/
-│       │   ├── trades.py
-│       │   ├── portfolio.py
-│       │   └── prices.py
+│       │   ├── trades.py           # GET/POST/PATCH Trade-Endpoints
+│       │   ├── portfolio.py        # GET Portfolio Summary + Live Portfolio
+│       │   ├── prices.py           # GET Live-Preise + Search + History
+│       │   ├── traders.py          # GET Trader-Profile mit Base64-Avataren
+│       │   ├── reports.py          # GET Market Reports + Portfolio Review
+│       │   ├── judgments.py        # GET/POST Trader-Judgments pro Symbol
+│       │   └── missioncontrol.py   # Monitoring: Overview, System, Live, Health,
+│       │                           #   Code-Quality, Reports, Graphiphy (SVG/PNG/HTML)
 │       └── services/
-│           ├── price_engine.py
-│           ├── asset_db.py
-│           └── import_trades.py
+│           ├── price_engine.py     # yfinance + ccxt/KuCoin mit Cache
+│           ├── asset_db.py         # 35+ Assets mit Symbol+Market-Mapping
+│           ├── evaluator.py        # Trigger für trading-crew evaluate.py
+│           └── import_trades.py    # trades.json → SQLite Migration
 ├── frontend/
 │   ├── pubspec.yaml
+│   ├── assets/
+│   │   ├── avatars/          # Trader-Avatare (Flutter Asset Bundle)
+│   │   └── report_icons/     # Report-Kategorie-Icons (PNG)
 │   └── lib/
 │       ├── main.dart
-│       ├── app.dart
+│       ├── app.dart               # GoRouter + ThemeModeProvider
 │       ├── config/
 │       │   ├── api_config.dart
-│       │   └── theme.dart
+│       │   └── theme.dart         # Dark + Light Theme
 │       ├── models/
 │       │   ├── live_portfolio.dart
 │       │   ├── portfolio.dart
 │       │   ├── portfolio_review.dart
 │       │   ├── price.dart
-│       │   ├── trade.dart
+│       │   ├── trade.dart           # inkl. stopLoss-Feld
 │       │   └── trader_profile.dart
 │       ├── services/
 │       │   ├── api_client.dart
@@ -107,45 +133,58 @@ trading-app/
 │       │   ├── trade_provider.dart
 │       │   └── trader_provider.dart
 │       ├── pages/
-│       │   ├── market_reports_page.dart
-│       │   ├── portfolio_page.dart
-│       │   ├── trade_close_page.dart
-│       │   ├── trade_open_page.dart
-│       │   └── settings_page.dart
+│       │   ├── market_reports_page.dart   # 8 Kategorien + Portfolio Review
+│       │   ├── portfolio_page.dart        # KPIs + Sparklines + Trader Board
+│       │   ├── trade_close_page.dart      # Merge + Partial Close + Stop-Loss
+│       │   ├── trade_open_page.dart       # Autocomplete + Stop-Loss-Eingabe
+│       │   └── settings_page.dart         # Dark/Light-Toggle
 │       └── widgets/
 │           ├── ampel_indicator.dart
 │           ├── kpi_card.dart
-│           ├── portfolio_review_card.dart
+│           ├── portfolio_review_card.dart  # AI-Kommentator
 │           ├── price_chart.dart
 │           ├── sparkline.dart
 │           ├── trade_card.dart
 │           └── trader_avatar_row.dart
 ├── flatpak/
 │   ├── app.trading.TradingApp.yml
+│   ├── app.trading.TradingApp.desktop
+│   ├── icon.png
 │   ├── build-dir/
 │   └── repo/
 ├── data/
 │   └── trades.json
+├── graphify-out/              # Knowledge Graph (generiert von graphify)
 └── deploy/
     └── lxc104-setup.sh
 ```
 
-## Phase 1 – MVP
+## Phase 1 – MVP (abgeschlossen)
 
-1. **Projekt-Setup** – FastAPI + Flutter + SQLite + GitHub + LXC 104
+1. **Projekt-Setup** – FastAPI + Flutter + SQLite + GitHub + Deployment
 2. **Portfolio-Übersicht** – KPIs (Startkapital, Kassenbestand, Portfoliowert, P&L, Win-Rate)
-3. **Trade erfassen** – LONG/SHORT, Live-Preis, Asset-Datenbank
-4. **Trade schließen** – P&L-Berechnung, Historie
+3. **Trade erfassen** – LONG/SHORT, Live-Preis, Asset-Datenbank, Autocomplete
+4. **Trade schließen** – P&L-Berechnung, Historie, Partial Close, Stop-Loss
 5. **Daten-Migration** – trades.json → SQLite Import
+6. **Market Reports** – 8 Kategorien + Portfolio Review, HTML/Markdown-Rendering
+7. **Trader Board** – Profile mit Avataren, Traits, AI-Kommentator
+8. **Mission Control Backend** – Monitoring API (Overview, System, Live, Health, Code Quality)
+9. **Graphiphy** – Knowledge Graph Viz (SVG/PNG/HTML, Communities, God-Nodes, Search)
+10. **Flatpak-CD** – Continuous Delivery via OSTree-Repo
 
-## Phase 2+ (später)
+## Phase 2 – In Bearbeitung
 
-- Report-Viewer (Reports aus trading-crew einbinden)
-- Trading Crew: Category-Reports ins Filesystem schreiben (Pattern: `{category}_YYYY-MM-DD.txt`)
+- Mission Control Frontend (separates Flutter-Projekt `~/missioncontrol-app/`)
+- Settings-Page mit Live-API-Status und DB-Status
+- Live-Trading-Modus (KuCoin API, Read-Only + API-Key)
+
+## Phase 3+ (später)
+
 - Circuit Breaker (automatischer Stop nach X Verlusten)
 - Backtesting (historische Strategie-Simulation)
-- Live-Trading-Modus (KuCoin API, Read-Only + API-Key)
 - Push-Notifications (Mobile Alerts)
+- Echtzeit-Preise (WebSocket statt Polling)
+- Drift-Local-Cache (Offline-First)
 
 ## Skill-Trigger
 
@@ -164,44 +203,110 @@ trading-app/
 
 - **Paper-First:** Jedes Feature zuerst im Paper-Modus testen
 - **API-first:** Backend-Endpoint vor Flutter-UI implementieren
+- **Tailscale-Only:** Alle Services binden an `100.103.32.107`, niemals `0.0.0.0` oder `127.0.0.1`
 - **Tests mitdenken:** Backend: pytest + TestClient, Frontend: widget_test.dart
 - **Security:** API-Keys NIE im Flutter-Code – immer im Backend `~/.env`
 - **Offline-First:** Lokale drift-DB als Cache, FastAPI als Remote-Source
 - **CI-Konsistenz:** Gleiche Farbwerte wie trading-crew Dashboard
 - **Repo-Sprache:** Docs DE+EN, Code-Kommentare EN, Commit-Messages EN
 
+## API-Endpoints
+
+### Trading API (`/api/`)
+
+| Methode | Endpoint | Beschreibung |
+|--------|----------|-------------|
+| GET | `/api/trades` | Offene + geschlossene Trades |
+| POST | `/api/trades` | Neuen Trade eröffnen |
+| PATCH | `/api/trades/{id}/close` | Trade schließen (Partial Close möglich) |
+| GET | `/api/portfolio` | Portfolio-Zusammenfassung (KPIs) |
+| GET | `/api/portfolio/live` | Live-Portfolio mit aktuellen Preisen |
+| GET | `/api/prices/{symbol}` | Live-Preis für Symbol |
+| GET | `/api/prices/{symbol}/history?days=N` | Preis-Historie (7-30 Tage) |
+| GET | `/api/prices/search?q=` | Asset-Suche (Name/Symbol) |
+| GET | `/api/traders` | Trader-Profile mit Base64-Avataren |
+| GET | `/api/judgments/{symbol}` | Trader-Judgments für Symbol |
+| POST | `/api/judgments` | Trader-Judgments speichern |
+| GET | `/api/reports/market` | Alle Report-Kategorien auflisten |
+| GET | `/api/reports/market/{category}` | Neuester Report pro Kategorie |
+| GET | `/api/reports/portfolio-review` | Neuester Portfolio Review |
+| GET | `/api/health` | Health-Check |
+
+### Mission Control API (`/api/missioncontrol/`)
+
+| Methode | Endpoint | Beschreibung |
+|--------|----------|-------------|
+| GET | `/{location}/overview` | Systemübersicht (Status, Health-Score, Alerts) |
+| GET | `/{location}/system` | Detailliertes System (Host, VMs, Services, Backups, Updates) |
+| GET | `/{location}/live` | Live-Healthchecks (Ping + TCP-Checks) |
+| GET | `/{location}/health` | Health-Score-Berechnung |
+| GET | `/{location}/code-quality` | Security-Audit-Findings, Open Ports |
+| GET | `/{location}/reports` | Monitoring-Report-Liste |
+| GET | `/{location}/reports/{filename}` | Einzeler Report-Details |
+| GET | `/{location}/graphiphy/stats` | Knowledge Graph Statistiken |
+| GET | `/{location}/graphiphy/god-nodes` | Top-N God-Nodes |
+| GET | `/{location}/graphiphy/communities` | Community-Liste |
+| GET | `/{location}/graphiphy/community/{id}` | Community-Nodes |
+| GET | `/{location}/graphiphy/search?q=` | Graph-Suche |
+| GET | `/{location}/graphiphy/viz` | Interaktive HTML-Visualisierung |
+| GET | `/{location}/graphiphy/svg` | SVG-Export |
+| GET | `/{location}/graphiphy/png` | PNG-Export (200 DPI) |
+| POST | `/{location}/graphiphy/viz/refresh` | Graph aktualisieren |
+
+**Location-Parameter:** `home-lab` (Standard) oder `production-center`
+
 ## Was NICHT hier rein gehört
 
-- Mission Control Dashboard → bleibt in `trading-crew/app/`
 - CronMaster → bleibt in `agent-templates/`
 - Watchdog / Intraday-Alerts → bleibt in `trading-crew/`
-- Monitoring → bleibt in `agent-templates/monitoring/`
+- Monitoring Crew (Berichte-Erstellung) → bleibt in `agent-templates/monitoring/`
+- Mission Control **Frontend** → separates Flutter-Projekt in `~/missioncontrol-app/`
+- **Mission Control Backend-API** → IST hier (`routers/missioncontrol.py`)
+- Trading Crew (Agent-Logik) → bleibt in `~/trading-crew/`
 
 ## Deployment (ai-agents, CachyOS)
 
-| Service | Port | Systemd Unit | Befehl |
-|---------|------|-------------|--------|
-| Backend (FastAPI) | 8000 | `trading-backend.service` | `systemctl --user start trading-backend` |
-| Flatpak Repo (HTTP) | 8081 | `trading-repo.service` | `systemctl --user start trading-repo` |
+**Security Policy: Tailscale-Only-Binding.** Kein Service bindet an `0.0.0.0` oder `127.0.0.1`. Alle Services binden ausschließlich an `100.103.32.107`.
+
+| Service | Port | Bind-Adresse | Systemd Unit |
+|---------|------|-------------|-------------|
+| Backend (FastAPI) | 8000 | `100.103.32.107` | `trading-backend.service` |
+| Flatpak Repo (HTTP) | 8081 | `100.103.32.107` | `trading-repo.service` |
+
+**Kritische Env-Variablen (`~/.env`):**
+
+| Variable | Wert | Nutzer |
+|----------|------|--------|
+| `TRADING_BACKEND_URL` | `http://100.103.32.107:8000` | trading-crew `portfolio_context.py` |
+| `API_BASE_URL` | `http://100.103.32.107:8000` | Mission Control App |
 
 **Backend starten:**
 ```bash
-cd ~/trading-app/backend && .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+cd ~/trading-app/backend && .venv/bin/uvicorn app.main:app --host 100.103.32.107 --port 8000
 ```
 
-**Flatpak bauen (auf ai-agents Server):**
+**One-Command Update (update.sh):**
+```bash
+cd ~/trading-app && bash update.sh
+# Macht: git pull → flutter build linux → flatpak-builder → desktop entry install
+```
+
+**Flatpak manuell bauen (auf ai-agents Server):**
 ```bash
 cd ~/trading-app/frontend && flutter build linux --release --dart-define=API_BASE_URL=http://100.103.32.107:8000
 cd ~/trading-app/flatpak && rm -rf .flatpak-builder && flatpak-builder --repo=repo --force-clean --install --user build-dir app.trading.TradingApp.yml
 ```
 
-**Client-Update (auf CachyOS-Desktop) — bei Frontend-Änderungen IMMER zuerst pullen:**
+**Client-Update (auf CachyOS-Desktop):**
 ```bash
 flatpak remote-add --user --no-gpg-verify trading-repo http://100.103.32.107:8081  # einmalig
-cd ~/trading-app && git pull                                           # Änderungen holen
-cd frontend && flutter build linux --release --dart-define=API_BASE_URL=http://100.103.32.107:8000
-cd ../flatpak && rm -rf .flatpak-builder && flatpak-builder --repo=repo --force-clean --install --user build-dir app.trading.TradingApp.yml
-flatpak run app.trading.TradingApp
+flatpak update app.trading.TradingApp
+```
+
+**Android APK:**
+```bash
+cd ~/trading-app/frontend && flutter build apk --release --dart-define=API_BASE_URL=http://100.103.32.107:8000
+# APK: build/app/outputs/flutter-apk/app-release.apk
 ```
 
 ## Session-Log: 2026-05-26
@@ -346,11 +451,19 @@ flatpak run app.trading.TradingApp
 - [x] Market Reports Page: 5. Tab, 8 Kategorien, Markdown-Renderer
 - [x] Backend: GET /api/reports/market/{category} + /api/reports/market
 - [x] Trades-Sektion: Portfolio-Review-Assets unter offenen Trades
+- [x] Stop-Loss-System + Partial Close
+- [x] Trade-Merge (gleiche Assets gruppiert)
+- [x] Dark/Light Mode Toggle
+- [x] HTML-Report-Rendering + Report-Zeitstempel
+- [x] Mission Control Backend API (Overview, System, Live, Health, Code Quality, Graphiphy)
+- [x] Netzwerk-Security-Härtung (Tailscale-Only-Binding)
+- [x] Tailscale-Only-Binding für alle Services
+- [x] `update.sh` — One-Command Update
 - [ ] KuCoin API-Key für Live-Preise (Read-Only)
+- [ ] Settings-Page mit echten Werten (API-Status, DB-Status, Theme-Persistierung)
+- [ ] Mission Control Frontend (separates Flutter-Projekt `~/missioncontrol-app/`)
 - [ ] Trading Crew: Reports in Category-Pattern schreiben
-- [ ] trades.json von trading-crew kopieren + ersten Import-Run
 - [ ] Backend auf LXC 104 deployen (pve-1 Zugang fehlt aktuell)
-- [ ] Settings-Page mit echten Werten (API-Status, DB-Status)
 
 ## Session-Log: 2026-05-25 (später)
 
@@ -381,10 +494,12 @@ flatpak run app.trading.TradingApp
 
 ### Monitoring-App initiiert
 - Grill-Me-Session: 11 Architektur-Entscheidungen getroffen
-- Projekt `~/monitoring-app/` erstellt mit AGENTS.md
+- Projekt `~/missioncontrol-app/` erstellt mit AGENTS.md
 - GitHub: https://github.com/agentomaniac1o0/monitoring-app
-- Geplant: Monitoring-App als separate Flutter-App, Backend in trading-app/backend erweitert
+- **Mission Control Backend-API** ist in trading-app (`routers/missioncontrol.py`)
+- Mission Control **Frontend** als separates Flutter-Projekt (`~/missioncontrol-app/`)
 - Daten: strukturiertes JSON von Monitoring Crews, live Health-Checks
+- Streamlit-Dashboard (`trading-crew/app/`) wurde gelöscht
 ---
 
 ## Session-Log: 2026-05-27 – Umfangreiches Trading-App-Update

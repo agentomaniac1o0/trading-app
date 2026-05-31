@@ -4,8 +4,8 @@ from uuid import uuid4
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Setting, Trade
-from app.schemas import TradeClose, TradeCreate
+from app.models import Setting, Trade, TraderJudgment
+from app.schemas import TradeClose, TradeCreate, TraderJudgmentCreate
 
 
 async def create_trade(db: AsyncSession, data: TradeCreate) -> Trade:
@@ -154,3 +154,56 @@ async def set_setting(db: AsyncSession, key: str, value: str) -> Setting:
     await db.commit()
     await db.refresh(setting)
     return setting
+
+
+async def create_judgments(
+    db: AsyncSession, data: list[TraderJudgmentCreate]
+) -> list[TraderJudgment]:
+    symbol = data[0].symbol
+    await delete_judgments(db, symbol, source="auto")
+    records = []
+    for d in data:
+        j = TraderJudgment(
+            id=uuid4().hex[:8],
+            symbol=d.symbol,
+            direction=d.direction,
+            trader=d.trader,
+            judgment=d.judgment,
+            reason=d.reason,
+            source="auto",
+        )
+        db.add(j)
+        records.append(j)
+    await db.commit()
+    return records
+
+
+async def get_judgments(db: AsyncSession, symbol: str) -> list[TraderJudgment]:
+    """Get latest judgments for a symbol (newest per trader)."""
+    result = await db.execute(
+        select(TraderJudgment)
+        .where(TraderJudgment.symbol == symbol)
+        .order_by(TraderJudgment.created_at.desc())
+    )
+    all_judgments = list(result.scalars().all())
+    seen = set()
+    latest = []
+    for j in all_judgments:
+        if j.trader not in seen:
+            seen.add(j.trader)
+            latest.append(j)
+    return latest
+
+
+async def delete_judgments(db: AsyncSession, symbol: str, source: str) -> int:
+    result = await db.execute(
+        select(TraderJudgment).where(
+            TraderJudgment.symbol == symbol,
+            TraderJudgment.source == source,
+        )
+    )
+    old = list(result.scalars().all())
+    for j in old:
+        await db.delete(j)
+    await db.commit()
+    return len(old)

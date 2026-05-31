@@ -44,3 +44,18 @@ class Setting(Base):
 
     key: Mapped[str] = mapped_column(String, primary_key=True)
     value: Mapped[str] = mapped_column(String, nullable=False)
+
+
+class TraderJudgment(Base):
+    __tablename__ = "trader_judgments"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: uuid4().hex[:8])
+    symbol: Mapped[str] = mapped_column(String, nullable=False)
+    direction: Mapped[str] = mapped_column(String, nullable=False)
+    trader: Mapped[str] = mapped_column(String, nullable=False)
+    judgment: Mapped[str] = mapped_column(String, nullable=False)
+    reason: Mapped[str] = mapped_column(String, nullable=False)
+    source: Mapped[str] = mapped_column(String, nullable=False, default="auto")
+    created_at: Mapped[str] = mapped_column(
+        String, default=lambda: datetime.utcnow().isoformat()
+    )

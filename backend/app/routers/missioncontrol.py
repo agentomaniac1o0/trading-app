@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, Response
 
+from app.config import settings
 from app.schemas import (
     BackupStatus,
     Finding,
@@ -48,6 +49,53 @@ PROD_AUDIT_LOG = os.path.join(PROD_MONITORING_DIR, "security_audit_log.json")
 PROD_GRAPHIFY_DIR = os.path.join(PROD_MONITORING_DIR, "graphify-out")
 
 
+def _parse_targets(cfg_str: str) -> list[tuple[str, str]]:
+    """Parse 'name:host,name:host' from config."""
+    result = []
+    for entry in cfg_str.split(","):
+        entry = entry.strip()
+        if ":" in entry:
+            name, host = entry.split(":", 1)
+            result.append((name.strip(), host.strip()))
+    return result
+
+
+def _parse_tcp_checks(cfg_str: str) -> list[tuple[str, str, int]]:
+    """Parse 'name:host:port,name:host:port' from config."""
+    result = []
+    for entry in cfg_str.split(","):
+        entry = entry.strip()
+        parts = entry.split(":")
+        if len(parts) >= 3:
+            name = parts[0].strip()
+            host = parts[1].strip()
+            try:
+                port = int(parts[2].strip())
+                result.append((name, host, port))
+            except ValueError:
+                pass
+    return result
+
+
+def _parse_known_services(cfg_str: str) -> list[dict]:
+    """Parse 'name:port:host,name:port:host' from config."""
+    result = []
+    for entry in cfg_str.split(","):
+        entry = entry.strip()
+        if ":" not in entry:
+            continue
+        parts = entry.split(":")
+        if len(parts) >= 3:
+            name = parts[0].strip()
+            try:
+                port = int(parts[1].strip())
+                host = parts[2].strip()
+                result.append({"name": name, "online": True, "port": port, "host": host})
+            except ValueError:
+                pass
+    return result
+
+
 def _build_overview(data: dict) -> MissioncontrolOverview:
     o = dict(data.get("overview", data))
     if "last_report" not in o:
@@ -78,6 +126,30 @@ def _latest_report_path(location: str = "home-lab") -> str | None:
                 if os.path.getsize(f) > 200:
                     return f
     return None
+
+
+def _extract_report_title(path: str) -> str:
+    """Extract title from a report file (first H1 line for .md, date for .json)."""
+    try:
+        if path.endswith(".json"):
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+            date = data.get("report_date", "")
+            location = data.get("location", "")
+            if location:
+                return f"Monitoring Report {location} - {date}"
+            return f"Monitoring Report - {date}"
+        if path.endswith(".md"):
+            with open(path, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("# ") and not line.startswith("## "):
+                        return line.lstrip("# ").strip()
+                    if line and not line.startswith("#"):
+                        break
+    except Exception:
+        pass
+    return ""
 
 
 def _report_mtime(path: str) -> str:
@@ -358,19 +430,10 @@ def _parse_system_from_md(path: str) -> dict:
                             "host": svc_host,
                         })
 
-    # Ensure key services from VM 101 are listed (from reports/security audit)
-    known_services = {
-        "Uvicorn (Backend)": (8000, "VM 101 – AI Agents"),
-        "Flatpak-Repo": (8081, "VM 101 – AI Agents"),
-        "Mission Control": (8502, "VM 101 – AI Agents"),
-        "Trading Dashboard": (8501, "VM 101 – AI Agents"),
-        "MCP-Server": (3000, "VM 101 – AI Agents"),
-        "CrewAI-Scheduler": (0, "VM 101 – AI Agents"),
-        "Ghost Blog": (80, "LXC 102 – Ghost Blog"),
-    }
-    for name, (svc_port, svc_host_name) in known_services.items():
-        if not any(s["name"] == name for s in services):
-            services.append({"name": name, "online": True, "port": svc_port, "host": svc_host_name})
+    # Ensure key services from VM 101 are listed (from config)
+    for svc_entry in _parse_known_services(settings.known_services_str):
+        if not any(s["name"] == svc_entry["name"] for s in services):
+            services.append(svc_entry)
 
     # Backups — parse "BACKUPS" section table
     backups = []
@@ -745,19 +808,9 @@ async def get_live(location: str):
     import asyncio as _aio
 
     if location == "production-center":
-        targets = [
-            ("proxmox-host", "100.97.55.39"),
-            ("schaltzentrale (VM 100)", "100.126.181.63"),
-            ("PBS (LXC 101)", "192.168.0.80"),
-        ]
+        targets = _parse_targets(settings.live_targets_prod)
     else:
-        targets = [
-            ("pve-1", "100.119.174.53"),
-            ("nextcloud", "100.75.220.89"),
-            ("ai-agents", "127.0.0.1"),
-            ("ghost-blog", "192.168.0.172"),
-            ("image-gen", "100.111.44.63"),
-        ]
+        targets = _parse_targets(settings.live_targets_home)
 
     async def _ping(name: str, host: str) -> LiveHeartbeat:
         try:
@@ -793,11 +846,7 @@ def _live_service_checks(location: str) -> list[LiveServiceCheck]:
                 results.append(svc)
 
     if location == "production-center":
-        # Production-Center-spezifische TCP-Checks
-        prod_checks = [
-            ("Mission Control", "100.126.181.63", 8503),
-            ("SSH (Schaltzentrale)", "100.126.181.63", 22),
-        ]
+        prod_checks = _parse_tcp_checks(settings.live_tcp_prod)
         for name, host, port in prod_checks:
             ok, _ = _tcp_check(host, port)
             if not any(r.service == name for r in results):
@@ -811,19 +860,10 @@ def _tcp_service_checks(location: str = "home-lab") -> list[LiveServiceCheck]:
     import socket
     import time
 
-    checks: list[tuple[str, str, int]] = []
     if location == "production-center":
-        checks = [
-            ("SSH", "100.126.181.63", 22),
-            ("Mission Control", "100.126.181.63", 8503),
-        ]
+        checks = _parse_tcp_checks(settings.live_tcp_prod)
     else:
-        checks = [
-            ("SSH (pve-1)", "100.119.174.53", 22),
-            ("Nextcloud HTTPS", "100.75.220.89", 443),
-            ("Proxmox Web", "100.119.174.53", 8006),
-            ("Ghost Blog", "192.168.0.172", 80),
-        ]
+        checks = _parse_tcp_checks(settings.live_tcp_home)
 
     results = []
     for name, host, port in checks:
@@ -1308,15 +1348,18 @@ async def list_reports(location: str, limit: int = 5):
         path = os.path.join(base, f)
         mtime = os.path.getmtime(path)
         date_str = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
-        result.append(ReportListItem(filename=f, date=date_str, size_bytes=os.path.getsize(path)))
+        title = _extract_report_title(path)
+        result.append(ReportListItem(
+            filename=f, date=date_str, size_bytes=os.path.getsize(path), title=title,
+        ))
     return result
 
 
 @router.get("/{location}/reports/{filename}", response_model=ReportDetail)
 async def get_report(location: str, filename: str):
     base = _reports_dir(location)
-    path = os.path.join(base, filename)
-    if not os.path.exists(path) or not path.startswith(base):
+    path = os.path.realpath(os.path.join(base, filename))
+    if not path.startswith(os.path.realpath(base) + os.sep) or not os.path.exists(path):
         raise HTTPException(status_code=404, detail="Report not found")
     with open(path, encoding="utf-8") as f:
         content = f.read()
@@ -1421,17 +1464,17 @@ async def list_trading_reports(location: str, limit: int = 5):
 @router.get("/{location}/trading-reports/{filename}", response_model=ReportDetail)
 async def get_trading_report(location: str, filename: str):
     """Get a specific trading report content"""
-    path = os.path.join(TRADING_REPORTS_DIR, filename)
+    path = os.path.realpath(os.path.join(TRADING_REPORTS_DIR, filename))
     
-    # Security check: ensure path is within reports directory
-    if not os.path.exists(path) or not path.startswith(TRADING_REPORTS_DIR):
+    # Security check: ensure resolved path is within reports directory
+    if not path.startswith(os.path.realpath(TRADING_REPORTS_DIR) + os.sep) or not os.path.exists(path):
         raise HTTPException(status_code=404, detail="Trading report not found")
     
     try:
         with open(path, encoding="utf-8") as f:
             content = f.read()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error reading report: {str(e)}")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Unable to read report")
     
     # Determine format
     fmt = "json" if filename.endswith(".json") else "html" if filename.endswith(".txt") else "text"

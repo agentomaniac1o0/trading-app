@@ -1,5 +1,0 @@
-[Runtime]
-name=app.trading.TradingApp.Debug
-
-[ExtensionOf]
-ref=app/app.trading.TradingApp/x86_64/master

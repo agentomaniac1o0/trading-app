@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import crud
 from app.database import get_db
 from app.schemas import TradeClose, TradeCreate, TradeResponse
+from app.services.evaluator import trigger_evaluation
 
 router = APIRouter(prefix="/trades", tags=["trades"])
 
@@ -23,6 +24,8 @@ async def list_trades(
 @router.post("", response_model=TradeResponse, status_code=201)
 async def create_trade(data: TradeCreate, db: AsyncSession = Depends(get_db)):
     trade = await crud.create_trade(db, data)
+    import asyncio
+    asyncio.create_task(trigger_evaluation(trade.symbol, trade.asset, trade.direction, trade.market))
     return trade
 
 

@@ -1,0 +1,94 @@
+#!/bin/bash
+# pre-commit hook: Secrets check + Python syntax check + Review reminder
+set -e
+
+STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM -- '*.py' 2>/dev/null || true)
+STAGED_DART=$(git diff --cached --name-only --diff-filter=ACM -- '*.dart' 2>/dev/null || true)
+STAGED_ALL=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null || true)
+
+BLOCK=0
+WARN=0
+
+# ── 1. Secrets check ──────────────────────────────────────────────────────
+if [ -n "$STAGED_ALL" ]; then
+    SECRET_PATTERNS=(
+        'api[_-]?key\s*=\s*["\x27][A-Za-z0-9_]{20,}'
+        'secret[_-]?key\s*=\s*["\x27][A-Za-z0-9_]{20,}'
+        'password\s*=\s*["\x27][^"\x27]{8,}'
+        'token\s*=\s*["\x27][A-Za-z0-9_]{20,}'
+        'Bearer\s+[A-Za-z0-9_\-]{30,}'
+        'sk-[A-Za-z0-9]{40,}'
+        'ghp_[A-Za-z0-9]{36,}'
+        '-----BEGIN[A-Z ]*PRIVATE KEY-----'
+        'discord\.com/api/webhooks/[0-9]+/[A-Za-z0-9_\-]+'
+    )
+    for FILE in $STAGED_ALL; do
+        if [ ! -f "$FILE" ]; then continue; fi
+        for PATTERN in "${SECRET_PATTERNS[@]}"; do
+            MATCH=$(grep -nP "$PATTERN" "$FILE" 2>/dev/null || true)
+            if [ -n "$MATCH" ]; then
+                echo "BLOCKING: Potential secret in $FILE:"
+                echo "$MATCH"
+                BLOCK=1
+            fi
+        done
+    done
+fi
+
+# ── 2. Python syntax check ──────────────────────────────────────────────
+if [ -n "$STAGED_PY" ]; then
+    for FILE in $STAGED_PY; do
+        if [ ! -f "$FILE" ]; then continue; fi
+        python3 -m py_compile "$FILE" 2>/dev/null || {
+            echo "BLOCKING: Syntax error in $FILE"
+            BLOCK=1
+        }
+    done
+fi
+
+# ── 3. .env in staging ──────────────────────────────────────────────────
+for FILE in $STAGED_ALL; do
+    case "$FILE" in
+        *.env|.env*|*.secret*)
+            echo "BLOCKING: Environment/secret file staged: $FILE"
+            echo "  Remove with: git reset HEAD $FILE"
+            BLOCK=1
+            ;;
+    esac
+done
+
+# ── 4. Print review reminder ────────────────────────────────────────────
+REVIEW_FLAG="/tmp/.opencode-review-pending"
+
+if [ -n "$STAGED_PY" ] || [ -n "$STAGED_DART" ]; then
+    REPO_DIR=$(git rev-parse --show-toplevel 2>/dev/null || echo "unknown")
+    REPO_NAME=$(basename "$REPO_DIR")
+    echo "$REPO_NAME" > "$REVIEW_FLAG"
+    echo ""
+    echo "── Code Review Reminder ──────────────────────────────────"
+    echo "  Staged files detected. Run code review agents after commit:"
+    echo ""
+    echo "  For Python (backend):"
+    echo "    /code-cleanup $REPO_DIR/backend"
+    echo ""
+    echo "  For Dart (frontend):"
+    echo "    /code-cleanup $REPO_DIR/frontend"
+    echo ""
+    echo "  Security review:"
+    echo "    security-reviewer → $REPO_DIR/backend"
+    echo "──────────────────────────────────────────────────────────"
+fi
+
+# ── Exit ─────────────────────────────────────────────────────────────────
+if [ $BLOCK -eq 1 ]; then
+    echo ""
+    echo "ERROR: Commit blocked. Fix the issues above before committing."
+    exit 1
+fi
+
+if [ $WARN -eq 1 ]; then
+    echo ""
+    echo "WARNING: Issues found but not blocking. Review recommended."
+fi
+
+exit 0
