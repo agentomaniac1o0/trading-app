@@ -162,12 +162,12 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
             ? '$reportDate at $reportTime'
             : reportDate;
 
-        final trimmed = content.trimLeft();
-        final isHtml = trimmed.startsWith('<div') ||
-            trimmed.startsWith('<h2') ||
-            trimmed.startsWith('<h1') ||
-            trimmed.startsWith('<p') ||
-            trimmed.startsWith('<!--');
+        final stripped = content.trimLeft().replaceFirst(RegExp(r'^[\*_`~\s]+'), '');
+        final isHtml = stripped.startsWith('<div') ||
+            stripped.startsWith('<h2') ||
+            stripped.startsWith('<h1') ||
+            stripped.startsWith('<p') ||
+            stripped.startsWith('<!--');
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
