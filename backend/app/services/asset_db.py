@@ -25,6 +25,7 @@ ASSET_DB = {
     "Nio":             {"symbol": "NIO",    "market": "technologie"},
     "Alibaba":         {"symbol": "BABA",   "market": "technologie"},
     "Energy ETF":      {"symbol": "XLE",    "market": "rohstoff"},
+    "Consumer Staples": {"symbol": "XLP",    "market": "etf"},
     "Finance-Sektor":  {"symbol": "XLF",   "market": "forex"},
     "JPMorgan":        {"symbol": "JPM",    "market": "forex"},
     "Goldman Sachs":   {"symbol": "GS",     "market": "forex"},
@@ -118,7 +119,7 @@ def search_assets(query: str) -> list[dict]:
     q = query.lower().strip()
     results = []
     for name, data in ASSET_DB.items():
-        sym_clean = data["symbol"].lower().replace("-", "").replace("=", "").replace("x", "")
+        sym_clean = data["symbol"].lower().replace("-", "").replace("=", "")
         if q in name.lower() or q in sym_clean:
             results.append({
                 "name": name,
