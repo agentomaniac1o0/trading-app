@@ -32,7 +32,7 @@ class AssetSearchService {
   AssetSearchService(this._client);
 
   Future<List<AssetResult>> search(String query) async {
-    if (query.length < 2) return [];
+    if (query.length < 1) return [];
     final response = await _client.get('/api/prices/search', queryParameters: {'q': query});
     return (response.data as List)
         .map((e) => AssetResult.fromJson(e as Map<String, dynamic>))

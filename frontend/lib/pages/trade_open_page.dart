@@ -35,7 +35,7 @@ class _TradeOpenPageState extends ConsumerState<TradeOpenPage> {
   }
 
   Future<void> _onSearchChanged(String query) async {
-    if (query.length < 2) {
+    if (query.isEmpty) {
       setState(() => _suggestions = []);
       return;
     }
