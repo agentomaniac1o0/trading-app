@@ -28,9 +28,23 @@ async def get_portfolio_summary(db: AsyncSession = Depends(get_db)):
 
     invested = await crud.get_open_position_cost(db)
     closed_pnl = await crud.get_closed_pnl(db)
+
+    open_trades = await crud.get_trades(db, status="open")
+    unrealized_pnl = 0.0
+    invested_market = 0.0
+    for trade in open_trades:
+        price_data = await get_price(trade.symbol)
+        price_current = price_data["price"] if price_data else trade.price_open
+        market_value = price_current * trade.quantity
+        invested_market += market_value
+        if trade.direction == "LONG":
+            unrealized_pnl += (price_current - trade.price_open) * trade.quantity
+        else:
+            unrealized_pnl += (trade.price_open - price_current) * trade.quantity
+
     cash = initial_capital - invested + closed_pnl
-    portfolio_value = cash + invested
-    total_pnl = closed_pnl
+    portfolio_value = cash + invested_market
+    total_pnl = closed_pnl + unrealized_pnl
     total_pnl_pct = (total_pnl / initial_capital * 100) if initial_capital else 0
 
     open_positions = await crud.count_trades(db, status="open")
