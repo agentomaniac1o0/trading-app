@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 
 from fastapi import APIRouter, Depends
@@ -14,6 +15,7 @@ from app.schemas import (
     PortfolioReviewResponse,
     PortfolioSummary,
 )
+from app.services.evaluator import is_eval_running, trigger_evaluation
 from app.services.price_engine import get_price
 
 from app.routers.reports import _find_latest_report, _parse_portfolio_review
@@ -26,26 +28,34 @@ async def get_portfolio_summary(db: AsyncSession = Depends(get_db)):
     initial_capital_str = await crud.get_setting(db, "initial_capital")
     initial_capital = float(initial_capital_str) if initial_capital_str else settings.initial_capital
 
-    invested = await crud.get_open_position_cost(db)
     closed_pnl = await crud.get_closed_pnl(db)
 
     open_trades = await crud.get_trades(db, status="open")
     unrealized_pnl = 0.0
-    invested_market = 0.0
+    invested_long = 0.0
+    invested_short_cost = 0.0
+    invested_market_long = 0.0
+    invested_market_short = 0.0
     for trade in open_trades:
         price_data = await get_price(trade.symbol)
         price_current = price_data["price"] if price_data else trade.price_open
         market_value = price_current * trade.quantity
-        invested_market += market_value
         if trade.direction == "LONG":
+            invested_long += trade.cost
+            invested_market_long += market_value
             unrealized_pnl += (price_current - trade.price_open) * trade.quantity
         else:
+            invested_short_cost += trade.cost
+            invested_market_short += market_value
             unrealized_pnl += (trade.price_open - price_current) * trade.quantity
 
-    cash = initial_capital - invested + closed_pnl
-    portfolio_value = cash + invested_market
-    total_pnl = closed_pnl + unrealized_pnl
+    total_pnl = round(closed_pnl + unrealized_pnl, 2)
     total_pnl_pct = (total_pnl / initial_capital * 100) if initial_capital else 0
+    portfolio_value = round(initial_capital + total_pnl, 2)
+
+    cash = round(initial_capital - invested_long + invested_short_cost + closed_pnl, 2)
+    invested = round(invested_long + invested_short_cost, 2)
+    invested_market = round(invested_market_long - invested_market_short, 2)
 
     open_positions = await crud.count_trades(db, status="open")
     closed_trades = await crud.count_trades(db, status="closed")
@@ -127,6 +137,17 @@ async def get_portfolio_review(db: AsyncSession = Depends(get_db)):
         except Exception:
             pass
 
+    asset_info: dict[str, tuple[str, str]] = {}
+    for trade in open_trades:
+        if trade.symbol not in asset_info:
+            asset_info[trade.symbol] = (trade.asset, trade.market)
+
+    for key, b in by_key.items():
+        sym = b["symbol"]
+        if sym not in judgments_by_symbol and not is_eval_running(sym, b["direction"]):
+            name, market = asset_info.get(sym, (b["name"], "technologie"))
+            asyncio.create_task(trigger_evaluation(sym, name, b["direction"], market))
+
     now = datetime.utcnow()
     assets = []
     for key, b in sorted(by_key.items()):
@@ -135,8 +156,6 @@ async def get_portfolio_review(db: AsyncSession = Depends(get_db)):
         name_clean = b["name"].replace(f" ({b['symbol']})", "")
         sym = b["symbol"]
         j = judgments_by_symbol.get(sym, [])
-        if not j:
-            continue
 
         assets.append(
             PortfolioReviewAsset(
@@ -165,8 +184,10 @@ async def get_live_portfolio(db: AsyncSession = Depends(get_db)):
     open_trades = await crud.get_trades(db, status="open")
 
     positions: list[LivePosition] = []
-    invested_cost = 0.0
-    invested_market = 0.0
+    invested_long = 0.0
+    invested_short_cost = 0.0
+    invested_market_long = 0.0
+    invested_market_short = 0.0
     unrealized_pnl = 0.0
 
     for trade in open_trades:
@@ -179,8 +200,12 @@ async def get_live_portfolio(db: AsyncSession = Depends(get_db)):
             position_pnl = round((trade.price_open - price_current) * trade.quantity, 2)
         position_pnl_pct = round((position_pnl / trade.cost) * 100, 2) if trade.cost else 0
 
-        invested_cost += trade.cost
-        invested_market += market_value
+        if trade.direction == "LONG":
+            invested_long += trade.cost
+            invested_market_long += market_value
+        else:
+            invested_short_cost += trade.cost
+            invested_market_short += market_value
         unrealized_pnl += position_pnl
 
         positions.append(
@@ -200,10 +225,10 @@ async def get_live_portfolio(db: AsyncSession = Depends(get_db)):
         )
 
     closed_pnl = await crud.get_closed_pnl(db)
-    cash = initial_capital - invested_cost + closed_pnl
+    cash = round(initial_capital - invested_long + invested_short_cost + closed_pnl, 2)
     total_pnl = round(closed_pnl + unrealized_pnl, 2)
     total_pnl_pct = round((total_pnl / initial_capital * 100), 2) if initial_capital else 0
-    portfolio_value = round(cash + invested_market, 2)
+    portfolio_value = round(initial_capital + total_pnl, 2)
 
     open_positions = len(open_trades)
     closed_trades = await crud.count_trades(db, status="closed")
@@ -212,9 +237,9 @@ async def get_live_portfolio(db: AsyncSession = Depends(get_db)):
 
     return LivePortfolioResponse(
         initial_capital=initial_capital,
-        cash=round(cash, 2),
-        invested_cost=round(invested_cost, 2),
-        invested_market=round(invested_market, 2),
+        cash=cash,
+        invested_cost=round(invested_long + invested_short_cost, 2),
+        invested_market=round(invested_market_long - invested_market_short, 2),
         portfolio_value=portfolio_value,
         total_pnl=total_pnl,
         total_pnl_pct=total_pnl_pct,

@@ -32,6 +32,7 @@ class TradeClosePage extends ConsumerWidget {
             padding: const EdgeInsets.all(16),
             children: grouped.entries.map((e) {
               return _MergedTradeTile(
+                key: ValueKey('trade_${e.key}'),
                 symbol: e.key,
                 trades: e.value,
               );
@@ -56,7 +57,7 @@ class TradeClosePage extends ConsumerWidget {
 class _MergedTradeTile extends ConsumerStatefulWidget {
   final String symbol;
   final List<Trade> trades;
-  const _MergedTradeTile({required this.symbol, required this.trades});
+  const _MergedTradeTile({super.key, required this.symbol, required this.trades});
 
   @override
   ConsumerState<_MergedTradeTile> createState() => _MergedTradeTileState();
@@ -72,6 +73,15 @@ class _MergedTradeTileState extends ConsumerState<_MergedTradeTile> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _fetchPrice());
+  }
+
+  @override
+  void didUpdateWidget(covariant _MergedTradeTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.symbol != widget.symbol) {
+      _livePrice = null;
+      _fetchPrice();
+    }
   }
 
   @override

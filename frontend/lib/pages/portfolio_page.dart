@@ -51,6 +51,7 @@ class PortfolioPage extends ConsumerWidget {
           ref.invalidate(livePortfolioProvider);
           ref.invalidate(tradesProvider);
           ref.invalidate(tradersProvider);
+          await ref.read(livePortfolioProvider.future);
         },
         child: liveAsync.when(
           data: (live) =>

@@ -5,6 +5,10 @@ from app import crud
 from app.database import get_db
 from app.schemas import TradeClose, TradeCreate, TradeResponse
 from app.services.evaluator import trigger_evaluation
+from app.services.price_engine import get_price
+
+import logging
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/trades", tags=["trades"])
 
@@ -43,6 +47,20 @@ async def close_trade(
     data: TradeClose,
     db: AsyncSession = Depends(get_db),
 ):
+    trade_before = await crud.get_trade(db, trade_id)
+    if not trade_before or trade_before.status == "closed":
+        raise HTTPException(status_code=404, detail="Trade not found or already closed")
+
+    price_data = await get_price(trade_before.symbol)
+    if price_data:
+        live_price = price_data["price"]
+        deviation = abs(data.price_close - live_price) / live_price if live_price else 0
+        if deviation > 0.5:
+            logger.warning(
+                "Close price deviation for %s: submitted=%.4f live=%.4f deviation=%.1f%%",
+                trade_before.symbol, data.price_close, live_price, deviation * 100,
+            )
+
     trade = await crud.close_trade(db, trade_id, data)
     if not trade:
         raise HTTPException(status_code=404, detail="Trade not found or already closed")

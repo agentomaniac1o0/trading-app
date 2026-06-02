@@ -7,6 +7,10 @@ import 'pages/market_reports_page.dart';
 import 'pages/trade_open_page.dart';
 import 'pages/trade_close_page.dart';
 import 'pages/settings_page.dart';
+import 'providers/live_portfolio_provider.dart';
+import 'providers/portfolio_provider.dart';
+import 'providers/trade_provider.dart';
+import 'providers/trader_provider.dart';
 
 final router = GoRouter(
   routes: [
@@ -77,17 +81,25 @@ class TradingApp extends ConsumerWidget {
   }
 }
 
-class HomeShell extends StatelessWidget {
+class HomeShell extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
   const HomeShell({super.key, required this.navigationShell});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: navigationShell.currentIndex,
-        onDestinationSelected: (index) => navigationShell.goBranch(index),
+        onDestinationSelected: (index) {
+          navigationShell.goBranch(index);
+          if (index == 0) {
+            ref.invalidate(livePortfolioProvider);
+            ref.invalidate(portfolioProvider);
+            ref.invalidate(tradesProvider);
+            ref.invalidate(tradersProvider);
+          }
+        },
         destinations: const [
           NavigationDestination(icon: Icon(Icons.dashboard), label: 'Portfolio'),
           NavigationDestination(icon: Icon(Icons.article_outlined), label: 'Reports'),

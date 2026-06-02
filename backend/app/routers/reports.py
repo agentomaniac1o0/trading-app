@@ -213,8 +213,6 @@ async def latest_portfolio_review(db: AsyncSession = Depends(get_db)):
         name_clean = b["name"].replace(f" ({b['symbol']})", "")
         sym = b["symbol"]
         j = judgments_by_symbol.get(sym, [])
-        if not j:
-            continue
 
         assets.append(
             PortfolioReviewAsset(
