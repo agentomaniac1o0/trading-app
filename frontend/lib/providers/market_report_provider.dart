@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import '../services/api_client.dart';
@@ -14,7 +15,8 @@ final marketReportProvider = FutureProvider.family<Map<String, dynamic>?, String
         options: Options(headers: {'Cache-Control': 'no-cache'}),
       );
       return response.data as Map<String, dynamic>;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Market report fetch failed: $e');
       return null;
     }
   },

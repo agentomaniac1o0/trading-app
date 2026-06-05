@@ -1,7 +1,7 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.database import Base, engine, get_db
+from app.database import Base, get_db
 from app.main import app
 
 import sqlalchemy

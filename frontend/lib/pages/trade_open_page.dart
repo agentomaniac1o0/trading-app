@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/theme.dart';
@@ -49,7 +50,8 @@ class _TradeOpenPageState extends ConsumerState<TradeOpenPage> {
           _searching = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Asset search failed: $e');
       if (mounted) setState(() => _searching = false);
     }
   }

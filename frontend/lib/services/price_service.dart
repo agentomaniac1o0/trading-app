@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/api_config.dart';
 import '../models/price.dart';
@@ -34,7 +35,7 @@ class PriceService {
     for (final symbol in symbols) {
       try {
         results[symbol] = await getPrice(symbol);
-      } catch (_) {}
+      } catch (e) { debugPrint('Price fetch failed for a symbol: $e'); }
     }
     return results;
   }

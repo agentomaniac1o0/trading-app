@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends
@@ -19,6 +20,8 @@ from app.services.evaluator import is_eval_running, trigger_evaluation
 from app.services.price_engine import get_price
 
 from app.routers.reports import _find_latest_report, _parse_portfolio_review
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
@@ -134,8 +137,8 @@ async def get_portfolio_review(db: AsyncSession = Depends(get_db)):
                 for asset in parsed.assets:
                     if asset.symbol not in judgments_by_symbol:
                         judgments_by_symbol[asset.symbol] = asset.judgments
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Report file read failed: %s", e)
 
     asset_info: dict[str, tuple[str, str]] = {}
     for trade in open_trades:

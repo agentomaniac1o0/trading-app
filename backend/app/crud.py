@@ -106,13 +106,6 @@ async def close_trade(db: AsyncSession, trade_id: str, data: TradeClose) -> Trad
     return trade
 
 
-async def get_open_position_cost(db: AsyncSession) -> float:
-    result = await db.execute(
-        select(Trade).where(Trade.status == "open")
-    )
-    open_trades = list(result.scalars().all())
-    return sum(t.cost for t in open_trades)
-
 
 async def get_closed_pnl(db: AsyncSession) -> float:
     result = await db.execute(
@@ -142,18 +135,6 @@ async def get_setting(db: AsyncSession, key: str) -> str | None:
     setting = result.scalar_one_or_none()
     return setting.value if setting else None
 
-
-async def set_setting(db: AsyncSession, key: str, value: str) -> Setting:
-    result = await db.execute(select(Setting).where(Setting.key == key))
-    setting = result.scalar_one_or_none()
-    if setting:
-        setting.value = value
-    else:
-        setting = Setting(key=key, value=value)
-        db.add(setting)
-    await db.commit()
-    await db.refresh(setting)
-    return setting
 
 
 async def create_judgments(

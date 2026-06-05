@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/price.dart';
 import '../services/price_service.dart';
@@ -26,7 +27,8 @@ class PriceNotifier extends AsyncNotifier<Map<String, Price>> {
       current[symbol] = price;
       state = AsyncData(Map.from(current));
       return price;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Price fetch failed: $e');
       return null;
     }
   }

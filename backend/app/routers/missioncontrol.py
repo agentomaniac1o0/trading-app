@@ -3,6 +3,7 @@ import json
 import os
 import re
 import subprocess
+import logging
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 
@@ -34,6 +35,8 @@ from app.schemas import (
     SysUpdate,
     VmStatus,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/missioncontrol", tags=["missioncontrol"])
 
@@ -73,7 +76,7 @@ def _parse_tcp_checks(cfg_str: str) -> list[tuple[str, str, int]]:
                 port = int(parts[2].strip())
                 result.append((name, host, port))
             except ValueError:
-                pass
+                logger.warning("Invalid port number in tcp_checks config")
     return result
 
 
@@ -92,7 +95,7 @@ def _parse_known_services(cfg_str: str) -> list[dict]:
                 host = parts[2].strip()
                 result.append({"name": name, "online": True, "port": port, "host": host})
             except ValueError:
-                pass
+                logger.warning("Invalid port number in known_services config")
     return result
 
 
@@ -147,8 +150,8 @@ def _extract_report_title(path: str) -> str:
                         return line.lstrip("# ").strip()
                     if line and not line.startswith("#"):
                         break
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Report title extraction failed: %s", e)
     return ""
 
 
@@ -330,7 +333,7 @@ def _parse_system_from_md(path: str) -> dict:
                     ram_used_f = float(ram_used_str)
                     ram_pct = round(ram_used_f / ram_alloc_f * 100, 1)
                 except (ValueError, ZeroDivisionError):
-                    pass
+                    logger.debug("RAM percentage parse failed")
             if ram_pct == 0.0:
                 for c in cols[4:]:
                     c_clean = c.replace(",", ".").replace(" ", "").rstrip("%")
@@ -460,7 +463,7 @@ def _parse_system_from_md(path: str) -> dict:
                         "success": "✅" in status_str and "⚠️" not in status_str,
                     })
                 except (ValueError, IndexError):
-                    pass
+                    logger.debug("Backup date parse failed")
 
     # Updates per system — parse combined "Ausstehende Updates / Reboot" table
     updates = []
@@ -570,14 +573,15 @@ def _parse_code_quality() -> dict:
             rt = top.get("report_time", "00:00")
             if rd:
                 last_report = f"{rd}T{rt}:00"
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Code quality report time parse failed: %s", e)
 
     if os.path.exists(AUDIT_LOG):
         with open(AUDIT_LOG, encoding="utf-8") as f:
             try:
                 data = json.load(f)
-            except (json.JSONDecodeError, Exception):
+            except (json.JSONDecodeError, Exception) as e:
+                logger.warning("Audit log JSON parse failed: %s", e)
                 data = []
 
             if isinstance(data, list):
@@ -637,7 +641,8 @@ def _parse_code_quality_prod() -> dict:
             "bare_excepts": sum(1 for f in findings if any(kw in (f.get("title","")+f.get("description","")).lower() for kw in ["bare except","silent fail","except","timeout","try/finally","finally"])),
             "auto_fix_results": [f["title"][:60] for f in findings if f.get("auto_fixed")] + data.get("auto_fix_results", []),
         }
-    except (json.JSONDecodeError, Exception):
+    except (json.JSONDecodeError, Exception) as e:
+        logger.warning("Production audit log parse failed: %s", e)
         return {"findings": [], "open_ports": [], "hardcoded_secrets": 0, "bare_excepts": 0, "auto_fix_results": []}
 
 
@@ -821,7 +826,8 @@ async def get_live(location: str):
             )
             rc = await _aio.wait_for(proc.wait(), timeout=3)
             ok = rc == 0
-        except Exception:
+        except Exception as e:
+            logger.debug("Ping %s (%s) failed: %s", name, host, e)
             ok = False
         return LiveHeartbeat(system=name, status="ok" if ok else "critical")
 
@@ -889,7 +895,8 @@ def _report_service_status() -> list[LiveServiceCheck]:
             )
             for s in services
         ]
-    except Exception:
+    except Exception as e:
+        logger.warning("Report service status parse failed: %s", e)
         return []
 
 
@@ -904,7 +911,8 @@ def _tcp_check(host: str, port: int, timeout: float = 2.0) -> tuple[bool, int]:
         elapsed = max(1, round((time.monotonic() - start) * 1000))
         s.close()
         return True, elapsed
-    except Exception:
+    except Exception as e:
+        logger.debug("TCP check %s:%s failed: %s", host, port, e)
         return False, 0
 
 
@@ -1187,10 +1195,10 @@ async def refresh_graphiphy_viz(location: str):
             capture_output=True, text=True, timeout=120,
         )
         results["update_ok"] = result.returncode == 0
-    except subprocess.TimeoutExpired:
-        pass
+    except subprocess.TimeoutExpired as e:
+        logger.warning("graphify update timed out: %s", e)
     except FileNotFoundError:
-        pass
+        logger.warning("graphify CLI not found for update")
 
     try:
         result = subprocess.run(
@@ -1198,15 +1206,15 @@ async def refresh_graphiphy_viz(location: str):
             capture_output=True, text=True, timeout=120,
         )
         results["html"] = os.path.exists(_graph_path(location, "graph.html"))
-    except subprocess.TimeoutExpired:
-        pass
+    except subprocess.TimeoutExpired as e:
+        logger.warning("graphify cluster-only timed out: %s", e)
     except FileNotFoundError:
-        pass
+        logger.warning("graphify CLI not found for cluster")
 
     try:
         results["png"] = _generate_graph_png(location)
-    except HTTPException:
-        pass
+    except HTTPException as e:
+        logger.warning("Graph PNG generation failed: %s", e.detail)
 
     return {"success": any(results.values()), "details": results}
 
@@ -1443,8 +1451,8 @@ async def list_trading_reports(location: str, limit: int = 5):
                             title = f"Trading Report - {data['date']}"
                         else:
                             title = "Trading Report"
-                except (json.JSONDecodeError, Exception):
-                    pass
+                except (json.JSONDecodeError, Exception) as e:
+                    logger.warning("Trading report JSON parse failed: %s", e)
             elif f.endswith(".txt"):
                 title = "Market Analysis"
             
@@ -1454,8 +1462,8 @@ async def list_trading_reports(location: str, limit: int = 5):
                 size_bytes=os.path.getsize(path),
                 title=title
             ))
-        except Exception:
-            # Skip files that can't be processed
+        except Exception as e:
+            logger.warning("Skipping unreadable report file %s: %s", f, e)
             continue
     
     return result

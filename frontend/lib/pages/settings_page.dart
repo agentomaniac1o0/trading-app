@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../config/api_config.dart';
 import '../config/theme.dart';
 
 final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.dark);
@@ -82,7 +83,7 @@ class SettingsPage extends ConsumerWidget {
             child: ListTile(
               leading: const Icon(Icons.cloud_outlined),
               title: const Text('API Status'),
-              subtitle: const Text('http://localhost:8000'),
+              subtitle: Text(apiBaseUrl),
               trailing: Icon(Icons.check_circle, color: AppColors.positive),
             ),
           ),

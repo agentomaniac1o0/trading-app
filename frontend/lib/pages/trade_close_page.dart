@@ -4,7 +4,6 @@ import '../config/theme.dart';
 import '../models/trade.dart';
 import '../providers/price_provider.dart';
 import '../providers/trade_provider.dart';
-import '../widgets/trade_card.dart';
 
 class TradeClosePage extends ConsumerWidget {
   const TradeClosePage({super.key});

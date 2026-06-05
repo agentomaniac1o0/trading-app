@@ -1,6 +1,7 @@
 import glob
 import os
 import re
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,6 +11,8 @@ from app import crud
 from app.database import get_db
 from app.schemas import PortfolioJudgment, PortfolioReviewAsset, PortfolioReviewResponse
 from app.services.price_engine import get_price
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -135,13 +138,6 @@ def _parse_portfolio_review(text: str, report_time: str | None = None) -> Portfo
     )
 
 
-def _extract_time_from_path(path: str) -> str | None:
-    basename = os.path.basename(path)
-    m = re.search(r"_(\d{2}-\d{2})\.(?:json|txt)$", basename)
-    if m:
-        return m.group(1).replace("-", ":")
-    return None
-
 
 @router.get("/portfolio-review", response_model=PortfolioReviewResponse | None)
 async def latest_portfolio_review(db: AsyncSession = Depends(get_db)):
@@ -202,8 +198,8 @@ async def latest_portfolio_review(db: AsyncSession = Depends(get_db)):
                 for asset in parsed.assets:
                     if asset.symbol not in judgments_by_symbol:
                         judgments_by_symbol[asset.symbol] = asset.judgments
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Portfolio review parse failed: %s", e)
 
     now = datetime.utcnow()
     assets = []

@@ -1,4 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/theme.dart';
@@ -17,7 +18,8 @@ final _priceHistoryProvider =
   final service = ref.watch(priceServiceProvider);
   try {
     return await service.getHistory(symbol, days: 7);
-  } catch (_) {
+  } catch (e) {
+    debugPrint('Price history fetch failed for $symbol: $e');
     return [];
   }
 });

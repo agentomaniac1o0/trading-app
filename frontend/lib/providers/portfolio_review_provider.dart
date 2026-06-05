@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/portfolio_review.dart';
 import '../services/api_client.dart';
@@ -13,6 +14,9 @@ final portfolioReviewProvider = FutureProvider<PortfolioReview?>((ref) async {
     if (response.data == null) return null;
     return PortfolioReview.fromJson(response.data as Map<String, dynamic>);
   } on DioException {
+    return null;
+  } catch (e) {
+    debugPrint('Portfolio review failed: $e');
     return null;
   }
 });
