@@ -199,8 +199,10 @@ class PortfolioPage extends ConsumerWidget {
             const SizedBox(width: 8),
             Expanded(
               child: _miniKpi(
-                label: 'Cash',
-                value: '\$${p.cash.toStringAsFixed(2)}',
+                label: 'Total P&L',
+                value:
+                    '${p.totalPnl >= 0 ? "+" : ""}\$${p.totalPnl.toStringAsFixed(2)}',
+                valueColor: pnlColor,
               ),
             ),
           ],
@@ -210,22 +212,57 @@ class PortfolioPage extends ConsumerWidget {
           children: [
             Expanded(
               child: _miniKpi(
-                label: 'Total P&L',
-                value:
-                    '${p.totalPnl >= 0 ? "+" : ""}\$${p.totalPnl.toStringAsFixed(2)}',
-                valueColor: pnlColor,
+                label: 'Cash (Gross)',
+                value: '\$${p.cash.toStringAsFixed(2)}',
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: _miniKpi(
-                label: 'Invested (Market)',
-                value: '\$${p.investedMarket.toStringAsFixed(2)}',
-                valueColor: investedColor,
+                label: 'Net Available',
+                value: '\$${p.netAvailable.toStringAsFixed(2)}',
+                valueColor: AppColors.gold,
               ),
             ),
           ],
         ),
+        if (p.shortExposure > 0) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _miniKpi(
+                  label: 'Short Exposure',
+                  value: '-\$${p.shortExposure.toStringAsFixed(2)}',
+                  valueColor: AppColors.negative,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _miniKpi(
+                  label: 'Invested (Market)',
+                  value: '\$${p.investedMarket.toStringAsFixed(2)}',
+                  valueColor: investedColor,
+                ),
+              ),
+            ],
+          ),
+        ] else ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _miniKpi(
+                  label: 'Invested (Market)',
+                  value: '\$${p.investedMarket.toStringAsFixed(2)}',
+                  valueColor: investedColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(child: SizedBox()),
+            ],
+          ),
+        ],
       ],
     );
   }

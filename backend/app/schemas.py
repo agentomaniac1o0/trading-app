@@ -47,6 +47,8 @@ class TradeResponse(BaseModel):
 class PortfolioSummary(BaseModel):
     initial_capital: float
     cash: float
+    short_exposure: float
+    net_available: float
     invested: float
     portfolio_value: float
     total_pnl: float
@@ -254,6 +256,8 @@ class LivePosition(BaseModel):
 class LivePortfolioResponse(BaseModel):
     initial_capital: float
     cash: float
+    short_exposure: float
+    net_available: float
     invested_cost: float
     invested_market: float
     portfolio_value: float

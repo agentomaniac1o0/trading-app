@@ -45,6 +45,8 @@ class LivePosition {
 class LivePortfolio {
   final double initialCapital;
   final double cash;
+  final double shortExposure;
+  final double netAvailable;
   final double investedCost;
   final double investedMarket;
   final double portfolioValue;
@@ -60,6 +62,8 @@ class LivePortfolio {
   const LivePortfolio({
     required this.initialCapital,
     required this.cash,
+    required this.shortExposure,
+    required this.netAvailable,
     required this.investedCost,
     required this.investedMarket,
     required this.portfolioValue,
@@ -77,6 +81,8 @@ class LivePortfolio {
     return LivePortfolio(
       initialCapital: (json['initial_capital'] as num).toDouble(),
       cash: (json['cash'] as num).toDouble(),
+      shortExposure: (json['short_exposure'] as num).toDouble(),
+      netAvailable: (json['net_available'] as num).toDouble(),
       investedCost: (json['invested_cost'] as num).toDouble(),
       investedMarket: (json['invested_market'] as num).toDouble(),
       portfolioValue: (json['portfolio_value'] as num).toDouble(),

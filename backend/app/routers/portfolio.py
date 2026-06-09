@@ -57,6 +57,8 @@ async def get_portfolio_summary(db: AsyncSession = Depends(get_db)):
     portfolio_value = round(initial_capital + total_pnl, 2)
 
     cash = round(initial_capital - invested_long + invested_short_cost + closed_pnl, 2)
+    short_exposure = round(invested_market_short, 2)
+    net_available = round(cash - short_exposure, 2)
     invested = round(invested_long + invested_short_cost, 2)
     invested_market = round(invested_market_long - invested_market_short, 2)
 
@@ -68,6 +70,8 @@ async def get_portfolio_summary(db: AsyncSession = Depends(get_db)):
     return PortfolioSummary(
         initial_capital=initial_capital,
         cash=round(cash, 2),
+        short_exposure=short_exposure,
+        net_available=net_available,
         invested=round(invested, 2),
         portfolio_value=round(portfolio_value, 2),
         total_pnl=round(total_pnl, 2),
@@ -229,6 +233,8 @@ async def get_live_portfolio(db: AsyncSession = Depends(get_db)):
 
     closed_pnl = await crud.get_closed_pnl(db)
     cash = round(initial_capital - invested_long + invested_short_cost + closed_pnl, 2)
+    short_exposure = round(invested_market_short, 2)
+    net_available = round(cash - short_exposure, 2)
     total_pnl = round(closed_pnl + unrealized_pnl, 2)
     total_pnl_pct = round((total_pnl / initial_capital * 100), 2) if initial_capital else 0
     portfolio_value = round(initial_capital + total_pnl, 2)
@@ -241,6 +247,8 @@ async def get_live_portfolio(db: AsyncSession = Depends(get_db)):
     return LivePortfolioResponse(
         initial_capital=initial_capital,
         cash=cash,
+        short_exposure=short_exposure,
+        net_available=net_available,
         invested_cost=round(invested_long + invested_short_cost, 2),
         invested_market=round(invested_market_long - invested_market_short, 2),
         portfolio_value=portfolio_value,

@@ -1,6 +1,8 @@
 class PortfolioSummary {
   final double initialCapital;
   final double cash;
+  final double shortExposure;
+  final double netAvailable;
   final double invested;
   final double portfolioValue;
   final double totalPnl;
@@ -12,6 +14,8 @@ class PortfolioSummary {
   const PortfolioSummary({
     required this.initialCapital,
     required this.cash,
+    required this.shortExposure,
+    required this.netAvailable,
     required this.invested,
     required this.portfolioValue,
     required this.totalPnl,
@@ -25,6 +29,8 @@ class PortfolioSummary {
     return PortfolioSummary(
       initialCapital: (json['initial_capital'] as num).toDouble(),
       cash: (json['cash'] as num).toDouble(),
+      shortExposure: (json['short_exposure'] as num).toDouble(),
+      netAvailable: (json['net_available'] as num).toDouble(),
       invested: (json['invested'] as num).toDouble(),
       portfolioValue: (json['portfolio_value'] as num).toDouble(),
       totalPnl: (json['total_pnl'] as num).toDouble(),
