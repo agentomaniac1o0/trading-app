@@ -607,3 +607,41 @@ cd ~/trading-app/frontend && flutter build apk --release --dart-define=API_BASE_
 - **Fix:** `backend/app/routers/reports.py:37` – Regex von `x(\d+)` auf `(?:x)?(\d+)\b` geändert (optionales `x`)
 - **Betroffene Datei:** `backend/app/routers/reports.py`
 
+## Session-Log: 2026-06-09 – Portfolio KPIs, Light Mode, Asset-DB
+
+### Asset-DB: MSCI China + Lithium ETF
+- `backend/app/services/asset_db.py`: `"MSCI China": {"symbol": "MCHI", "market": "technologie"}` und `"Lithium ETF": {"symbol": "LIT", "market": "rohstoff"}` hinzugefügt
+- MCHI war bereits in `trading-crew/config.py` (CHINA_SYMBOLS) und in trades.json — fehlte nur im Backend für Autocomplete-Suche
+- Beide Symbole jetzt über `/api/prices/search?q=` findbar
+
+### Portfolio: Short Exposure + Net Available
+- **Problem:** Cash-Wert enthält Short-Erlöse (geliehenes Geld) — kein Überblick über tatsächliches freies Kapital
+- **Neue KPIs:**
+  - `short_exposure` — aktueller Marktwert aller offenen Short-Positionen (Rücknahmeverpflichtung)
+  - `net_available` — Cash minus Short Exposure = tatsächlich freies Kapital
+- **Formel:** `net_available = cash - short_exposure`
+- **Backend:** `portfolio.py` (beide Endpoints: `/api/portfolio` und `/api/portfolio/live`) + `schemas.py` (PortfolioSummary, LivePortfolioResponse)
+- **Frontend:** `portfolio_page.dart` — KPI-Grid zeigt Cash (Gross), Net Available (gold), Short Exposure (rot, nur wenn > 0), Invested (Market)
+- **Modelle:** `portfolio.dart`, `live_portfolio.dart` — neue Felder `shortExposure`, `netAvailable`
+- **Beispiel:** Cash $3,251 / Short Exposure -$4,280 / Net Available -$1,029
+
+### Portfolio Review: Judgment-Logik nicht invertiert
+- Überlegung: LONG/SHORT-basierte Farben für Trader-Urteile (VERKAUFEN=grün bei SHORT)
+- **Entscheidung:** Keine Invertierung — Trader beurteilen den Asset-Wert, nicht die Position. Judgment-Logik bleibt wie gehabt (KAUFEN=grün, VERKAUFEN=rot)
+
+### Theme-Fix: Dark Mode als Standard + Light Mode Kontrast
+- **Bug:** `theme` und `darkTheme` in `app.dart` waren vertauscht — `ThemeMode.dark` wählte das Light-Theme
+- **Fix:** `theme: buildLightTheme()`, `darkTheme: buildDarkTheme()`, Default `ThemeMode.dark`
+- **Light Mode Kontrast-Fix:** 8 Dateien mit ~57 Ersetzungen
+  - `AppColors.textPrimary` → `AppColors.textColor(context)` (hell→dunkel in Light Mode)
+  - `AppColors.textSecondary` → `AppColors.secondaryColor(context)` (grau→dunkelgrau in Light Mode)
+  - `AppColors.border` → `AppColors.borderColor(context)` (dunkel→hell in Light Mode)
+  - Neue Helper in `theme.dart`: `textColor()`, `secondaryColor()`, `borderColor()`, `surfaceColor()`, `cardColor()`
+- **Betroffene Dateien:** portfolio_page.dart, portfolio_review_card.dart, trade_close_page.dart, trade_open_page.dart, market_reports_page.dart, trader_avatar_row.dart, kpi_card.dart, price_chart.dart
+
+### Deployment
+- APK: `trading-app-20260609-1235.apk` → Nextcloud `Home Lab/Trading App/`
+- Flatpak: rebuilt & installed
+- Backend: restarted (systemctl --user restart trading-backend.service)
+- Git: 2 Commits (`da79ce3`, `1ad83ed`)
+
