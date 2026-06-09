@@ -22,7 +22,12 @@ class Settings(BaseSettings):
         "SSH (pve-1):100.119.174.53:22,"
         "Nextcloud HTTPS:100.75.220.89:443,"
         "Proxmox Web:100.119.174.53:8006,"
-        "Ghost Blog:192.168.0.172:80"
+        "Ghost Blog:192.168.0.172:80,"
+        "Trading Backend:100.103.32.107:8000,"
+        "Flatpak Repo:100.103.32.107:8081,"
+        "SSH (ai-agents):100.103.32.107:22,"
+        "ComfyUI (LXC 103):100.111.44.63:8188,"
+        "Hermes SSH:192.168.0.144:22"
     )
     live_tcp_prod: str = (
         "SSH:100.126.181.63:22,Proxmox Web UI:192.168.0.20:8006"
@@ -34,7 +39,11 @@ class Settings(BaseSettings):
         "Trading Dashboard:8501:VM 101 – AI Agents,"
         "MCP-Server:3000:VM 101 – AI Agents,"
         "CrewAI-Scheduler:0:VM 101 – AI Agents,"
-        "Ghost Blog:80:LXC 102 – Ghost Blog"
+        "Ghost Blog:80:LXC 102 – Ghost Blog,"
+        "ComfyUI:8188:LXC 103 – Image-Gen,"
+        "MariaDB:3306:VM 100 – Nextcloud,"
+        "Redis:6379:VM 100 – Nextcloud,"
+        "Hermes Gateway:0:LXC 105 – Hermes"
     )
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
