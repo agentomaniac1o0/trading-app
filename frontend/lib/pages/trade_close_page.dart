@@ -18,11 +18,11 @@ class TradeClosePage extends ConsumerWidget {
         data: (trades) {
           final openTrades = trades.where((t) => t.status == 'open').toList();
           if (openTrades.isEmpty) {
-            return const Padding(
-              padding: EdgeInsets.all(32),
+            return Padding(
+              padding: const EdgeInsets.all(32),
               child: Center(
                 child: Text('No open trades',
-                    style: TextStyle(color: AppColors.textSecondary)),
+                    style: TextStyle(color: AppColors.secondaryColor(context))),
               ),
             );
           }
@@ -225,16 +225,16 @@ class _MergedTradeTileState extends ConsumerState<_MergedTradeTile> {
             Row(
               children: [
                 Text('Ø Entry: \$${_avgEntry.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 12)),
+                    style: TextStyle(
+                        color: AppColors.secondaryColor(context), fontSize: 12)),
                 const SizedBox(width: 12),
                 Text('×${_totalQty.toStringAsFixed(0)}',
-                    style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 12)),
+                    style: TextStyle(
+                        color: AppColors.secondaryColor(context), fontSize: 12)),
                 const SizedBox(width: 12),
                 Text('Cost: \$${_totalCost.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 12)),
+                    style: TextStyle(
+                        color: AppColors.secondaryColor(context), fontSize: 12)),
               ],
             ),
             const SizedBox(height: 4),
@@ -279,9 +279,9 @@ class _MergedTradeTileState extends ConsumerState<_MergedTradeTile> {
                   Text(
                     'Stop Loss: \$${widget.trades.first.stopLoss!.toStringAsFixed(2)}',
                     style: TextStyle(
-                      color: stopLossHit
-                          ? AppColors.negative
-                          : AppColors.textSecondary,
+color: stopLossHit
+                           ? AppColors.negative
+                           : AppColors.secondaryColor(context),
                       fontSize: 11,
                       fontWeight:
                           stopLossHit ? FontWeight.w600 : FontWeight.normal,
@@ -372,11 +372,11 @@ class _MergedTradeTileState extends ConsumerState<_MergedTradeTile> {
                     Icon(_showDetails
                         ? Icons.expand_less
                         : Icons.expand_more,
-                        size: 16, color: AppColors.textSecondary),
+                        size: 16, color: AppColors.secondaryColor(context)),
                     Text(
                         '${widget.trades.length} positions',
-                        style: const TextStyle(
-                            color: AppColors.textSecondary, fontSize: 11)),
+                        style: TextStyle(
+                            color: AppColors.secondaryColor(context), fontSize: 11)),
                   ],
                 ),
               ),
@@ -386,12 +386,12 @@ class _MergedTradeTileState extends ConsumerState<_MergedTradeTile> {
                       child: Row(
                         children: [
                           Icon(Icons.circle, size: 6,
-                              color: AppColors.textSecondary.withOpacity(0.5)),
+                              color: AppColors.secondaryColor(context).withOpacity(0.5)),
                           const SizedBox(width: 6),
                           Text(
                             '#${t.id}  ·  \$${t.priceOpen.toStringAsFixed(2)} × ${t.quantity.toStringAsFixed(0)}',
-                            style: const TextStyle(
-                                color: AppColors.textSecondary, fontSize: 11),
+                            style: TextStyle(
+                                color: AppColors.secondaryColor(context), fontSize: 11),
                           ),
                           const Spacer(),
                           TextButton(

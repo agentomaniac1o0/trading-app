@@ -22,10 +22,10 @@ class PortfolioReviewCard extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const Spacer(),
-                Text(
-                  review.reportDate,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
+Text(
+                   review.reportDate,
+                  style: TextStyle(
+                    color: AppColors.secondaryColor(context),
                     fontSize: 12,
                   ),
                 ),
@@ -81,27 +81,27 @@ class _AssetReviewTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                asset.name,
-                style: const TextStyle(
+Text(
+                 asset.name,
+                style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: AppColors.textColor(context),
                 ),
               ),
               const SizedBox(width: 6),
-              Text(
-                '(${asset.symbol})',
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
+Text(
+                 '(${asset.symbol})',
+                style: TextStyle(
+                  color: AppColors.secondaryColor(context),
                   fontSize: 12,
                 ),
               ),
               const Spacer(),
-              Text(
-                '\$${asset.livePrice.toStringAsFixed(2)}',
-                style: const TextStyle(
+Text(
+                 '\$${asset.livePrice.toStringAsFixed(2)}',
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                  color: AppColors.textColor(context),
                 ),
               ),
               const SizedBox(width: 8),
@@ -137,7 +137,7 @@ class _AssetReviewTile extends StatelessWidget {
                           child: Text(
                             _traderLabel(j.trader),
                             style: TextStyle(
-                              color: _traderColor(j.trader),
+                              color: _traderColor(j.trader, context),
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
@@ -148,24 +148,24 @@ class _AssetReviewTile extends StatelessWidget {
                               horizontal: 6, vertical: 1),
                           decoration: BoxDecoration(
                             color:
-                                _judgmentColor(j.judgment).withOpacity(0.15),
+                                _judgmentColor(j.judgment, context).withOpacity(0.15),
                             borderRadius: BorderRadius.circular(3),
                           ),
                           child: Text(
                             j.judgment,
                             style: TextStyle(
-                              color: _judgmentColor(j.judgment),
+                              color: _judgmentColor(j.judgment, context),
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
                         const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            j.reason,
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
+Expanded(
+                           child: Text(
+                             j.reason,
+                            style: TextStyle(
+                              color: AppColors.secondaryColor(context),
                               fontSize: 11,
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -233,23 +233,23 @@ class _AssetReviewTile extends StatelessWidget {
     };
   }
 
-  static Color _traderColor(String key) {
+  static Color _traderColor(String key, BuildContext context) {
     return switch (key) {
       'buffett' => AppColors.gold,
       'lynch' => AppColors.positive,
       'soros' => AppColors.violet,
       'wood' => AppColors.blue,
       'saylor' => const Color(0xFFf7931a),
-      _ => AppColors.textSecondary,
+      _ => AppColors.secondaryColor(context),
     };
   }
 
-  static Color _judgmentColor(String judgment) {
+  static Color _judgmentColor(String judgment, BuildContext context) {
     return switch (judgment) {
       'AUFSTOCKEN' || 'KAUFEN' => AppColors.positive,
       'HALTEN' || 'BEOBACHTEN' => AppColors.gold,
       'VERKAUFEN' => AppColors.negative,
-      _ => AppColors.textSecondary,
+      _ => AppColors.secondaryColor(context),
     };
   }
 
@@ -306,8 +306,8 @@ class _Kommentator extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             summary,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
+            style: TextStyle(
+              color: AppColors.textColor(context),
               fontSize: 12,
               height: 1.5,
             ),

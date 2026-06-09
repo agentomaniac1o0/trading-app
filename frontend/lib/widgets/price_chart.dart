@@ -31,7 +31,7 @@ class PriceChart extends StatelessWidget {
                     drawVerticalLine: false,
                     horizontalInterval: 1,
                     getDrawingHorizontalLine: (value) => FlLine(
-                      color: AppColors.border,
+                      color: AppColors.borderColor(context),
                       strokeWidth: 1,
                     ),
                   ),
@@ -42,8 +42,8 @@ class PriceChart extends StatelessWidget {
                         reservedSize: 50,
                         getTitlesWidget: (value, meta) => Text(
                           '\$${value.toStringAsFixed(0)}',
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
+                          style: TextStyle(
+                            color: AppColors.secondaryColor(context),
                             fontSize: 10,
                           ),
                         ),

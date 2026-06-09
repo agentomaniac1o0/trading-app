@@ -62,7 +62,7 @@ class PortfolioPage extends ConsumerWidget {
               const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(
               child: Text('Error: $e',
-                  style: const TextStyle(color: AppColors.textSecondary))),
+                  style: TextStyle(color: AppColors.secondaryColor(context)))),
         ),
       ),
     );
@@ -76,24 +76,25 @@ class PortfolioPage extends ConsumerWidget {
     bool isWide,
   ) {
     if (live == null) {
-      return const Center(
+      return Center(
           child: Text('No portfolio data',
-              style: TextStyle(color: AppColors.textSecondary)));
+              style: TextStyle(color: AppColors.secondaryColor(context))));
     }
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _buildOverviewCard(tradersAsync, live, isWide),
+        _buildOverviewCard(context, tradersAsync, live, isWide),
         const SizedBox(height: 16),
         _buildPnlCurve(context, tradesAsync),
         const SizedBox(height: 16),
-        _buildLivePositions(live),
+        _buildLivePositions(context, live),
       ],
     );
   }
 
   Widget _buildOverviewCard(
+    BuildContext context,
     AsyncValue<List<TraderProfile>> tradersAsync,
     LivePortfolio live,
     bool isWide,
@@ -104,14 +105,14 @@ class PortfolioPage extends ConsumerWidget {
         ? AppColors.positive
         : AppColors.negative;
 
-    final kpiGrid = _compactKpiGrid(live, pnlColor, investedColor);
+    final kpiGrid = _compactKpiGrid(context, live, pnlColor, investedColor);
     final traderSection = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Trader Icons',
           style: TextStyle(
-            color: AppColors.textPrimary,
+            color: AppColors.textColor(context),
             fontSize: 15,
             fontWeight: FontWeight.w700,
           ),
@@ -136,10 +137,10 @@ class PortfolioPage extends ConsumerWidget {
     final dashSection = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Dashboard',
           style: TextStyle(
-            color: AppColors.textPrimary,
+            color: AppColors.textColor(context),
             fontSize: 18,
             fontWeight: FontWeight.w700,
           ),
@@ -161,7 +162,7 @@ class PortfolioPage extends ConsumerWidget {
                     const SizedBox(width: 20),
                     Container(
                         width: 2,
-                        color: AppColors.border.withOpacity(0.6)),
+                        color: AppColors.borderColor(context).withOpacity(0.6)),
                     const SizedBox(width: 20),
                     Expanded(flex: 5, child: dashSection),
                   ],
@@ -174,7 +175,7 @@ class PortfolioPage extends ConsumerWidget {
                   const SizedBox(height: 14),
                   Container(
                       height: 2,
-                      color: AppColors.border.withOpacity(0.6)),
+                      color: AppColors.borderColor(context).withOpacity(0.6)),
                   const SizedBox(height: 14),
                   dashSection,
                 ],
@@ -184,7 +185,7 @@ class PortfolioPage extends ConsumerWidget {
   }
 
   Widget _compactKpiGrid(
-      LivePortfolio p, Color pnlColor, Color investedColor) {
+      BuildContext context, LivePortfolio p, Color pnlColor, Color investedColor) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -192,6 +193,7 @@ class PortfolioPage extends ConsumerWidget {
           children: [
             Expanded(
               child: _miniKpi(
+                context: context,
                 label: 'Portfolio Value',
                 value: '\$${p.portfolioValue.toStringAsFixed(2)}',
               ),
@@ -199,6 +201,7 @@ class PortfolioPage extends ConsumerWidget {
             const SizedBox(width: 8),
             Expanded(
               child: _miniKpi(
+                context: context,
                 label: 'Total P&L',
                 value:
                     '${p.totalPnl >= 0 ? "+" : ""}\$${p.totalPnl.toStringAsFixed(2)}',
@@ -212,6 +215,7 @@ class PortfolioPage extends ConsumerWidget {
           children: [
             Expanded(
               child: _miniKpi(
+                context: context,
                 label: 'Cash (Gross)',
                 value: '\$${p.cash.toStringAsFixed(2)}',
               ),
@@ -219,6 +223,7 @@ class PortfolioPage extends ConsumerWidget {
             const SizedBox(width: 8),
             Expanded(
               child: _miniKpi(
+                context: context,
                 label: 'Net Available',
                 value: '\$${p.netAvailable.toStringAsFixed(2)}',
                 valueColor: AppColors.gold,
@@ -232,6 +237,7 @@ class PortfolioPage extends ConsumerWidget {
             children: [
               Expanded(
                 child: _miniKpi(
+                  context: context,
                   label: 'Short Exposure',
                   value: '-\$${p.shortExposure.toStringAsFixed(2)}',
                   valueColor: AppColors.negative,
@@ -240,6 +246,7 @@ class PortfolioPage extends ConsumerWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _miniKpi(
+                  context: context,
                   label: 'Invested (Market)',
                   value: '\$${p.investedMarket.toStringAsFixed(2)}',
                   valueColor: investedColor,
@@ -253,6 +260,7 @@ class PortfolioPage extends ConsumerWidget {
             children: [
               Expanded(
                 child: _miniKpi(
+                  context: context,
                   label: 'Invested (Market)',
                   value: '\$${p.investedMarket.toStringAsFixed(2)}',
                   valueColor: investedColor,
@@ -268,6 +276,7 @@ class PortfolioPage extends ConsumerWidget {
   }
 
   Widget _miniKpi({
+    required BuildContext context,
     required String label,
     required String value,
     Color? valueColor,
@@ -287,8 +296,8 @@ class PortfolioPage extends ConsumerWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
+            style: TextStyle(
+              color: AppColors.secondaryColor(context),
               fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
@@ -297,7 +306,7 @@ class PortfolioPage extends ConsumerWidget {
           Text(
             value,
             style: TextStyle(
-              color: valueColor ?? AppColors.textPrimary,
+              color: valueColor ?? AppColors.textColor(context),
               fontSize: 16,
               fontWeight: FontWeight.w800,
             ),
@@ -323,8 +332,8 @@ class PortfolioPage extends ConsumerWidget {
                   Text('P&L Curve',
                       style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 12),
-                  const Text('No closed trades yet',
-                      style: TextStyle(color: AppColors.textSecondary)),
+                  Text('No closed trades yet',
+                      style: TextStyle(color: AppColors.secondaryColor(context))),
                 ],
               ),
             ),
@@ -362,9 +371,9 @@ class PortfolioPage extends ConsumerWidget {
                         show: true,
                         drawVerticalLine: false,
                         getDrawingHorizontalLine: (value) => FlLine(
-                          color: value == 0
-                              ? AppColors.textSecondary.withOpacity(0.5)
-                              : AppColors.border.withOpacity(0.3),
+color: value == 0
+                               ? AppColors.secondaryColor(context).withOpacity(0.5)
+                               : AppColors.borderColor(context).withOpacity(0.3),
                           strokeWidth: value == 0 ? 1.5 : 0.5,
                           dashArray: value == 0 ? [5, 3] : null,
                         ),
@@ -376,8 +385,8 @@ class PortfolioPage extends ConsumerWidget {
                             reservedSize: 55,
                             getTitlesWidget: (value, meta) => Text(
                               '\$${value.toStringAsFixed(0)}',
-                              style: const TextStyle(
-                                  color: AppColors.textSecondary,
+                              style: TextStyle(
+                                  color: AppColors.secondaryColor(context),
                                   fontSize: 10),
                             ),
                           ),
@@ -400,8 +409,8 @@ class PortfolioPage extends ConsumerWidget {
                                     closedTrades[idx]
                                         .dateClose!
                                         .substring(5),
-                                    style: const TextStyle(
-                                        color: AppColors.textSecondary,
+                                    style: TextStyle(
+                                        color: AppColors.secondaryColor(context),
                                         fontSize: 9)),
                               );
                             },
@@ -467,7 +476,7 @@ class PortfolioPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildLivePositions(LivePortfolio p) {
+  Widget _buildLivePositions(BuildContext context, LivePortfolio p) {
     if (p.positions.isEmpty) return const SizedBox();
 
     return Card(
@@ -476,9 +485,9 @@ class PortfolioPage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Open Positions',
+            Text('Open Positions',
                 style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: AppColors.textColor(context),
                     fontSize: 16,
                     fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),
@@ -488,8 +497,8 @@ class PortfolioPage extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Total cost',
-                    style: TextStyle(color: AppColors.textSecondary)),
+                Text('Total cost',
+                    style: TextStyle(color: AppColors.secondaryColor(context))),
                 Text('\$${p.investedCost.toStringAsFixed(2)}',
                     style: const TextStyle(fontWeight: FontWeight.bold)),
               ],
@@ -498,8 +507,8 @@ class PortfolioPage extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Total market value',
-                    style: TextStyle(color: AppColors.textSecondary)),
+                Text('Total market value',
+                    style: TextStyle(color: AppColors.secondaryColor(context))),
                 Text('\$${p.investedMarket.toStringAsFixed(2)}',
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
@@ -585,7 +594,7 @@ class _LivePositionTile extends ConsumerWidget {
                             child: CircularProgressIndicator(
                                 strokeWidth: 2))),
                     error: (_, __) =>
-                        const Icon(Icons.show_chart, size: 20, color: AppColors.textSecondary),
+                        Icon(Icons.show_chart, size: 20, color: AppColors.secondaryColor(context)),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -601,14 +610,14 @@ class _LivePositionTile extends ConsumerWidget {
                     const SizedBox(width: 10),
                     Text(
                       'Entry: \$${position.priceOpen.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                          color: AppColors.textSecondary, fontSize: 11),
+                      style: TextStyle(
+                          color: AppColors.secondaryColor(context), fontSize: 11),
                     ),
                     const SizedBox(width: 10),
                     Text(
                       '×${position.quantity.toStringAsFixed(0)}',
-                      style: const TextStyle(
-                          color: AppColors.textSecondary, fontSize: 11),
+                      style: TextStyle(
+                          color: AppColors.secondaryColor(context), fontSize: 11),
                     ),
                   ],
                 ),

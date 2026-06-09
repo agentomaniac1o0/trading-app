@@ -39,16 +39,16 @@ class KpiCard extends StatelessWidget {
             Text(
               value,
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: valueColor ?? AppColors.textPrimary,
+                    color: valueColor ?? AppColors.textColor(context),
                   ),
             ),
             if (subtitle != null)
-              Text(
-                subtitle!,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: valueColor ?? AppColors.textSecondary,
-                    ),
-              ),
+Text(
+              subtitle!,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: valueColor ?? AppColors.secondaryColor(context),
+                  ),
+            ),
           ],
         ),
       ),

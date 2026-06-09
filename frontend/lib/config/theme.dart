@@ -13,13 +13,42 @@ class AppColors {
   static const Color textSecondary = Color(0xFF8b949e);
   static const Color border = Color(0xFF30363d);
 
-  // Light mode
   static const Color lightBg = Color(0xFFf6f8fa);
   static const Color lightSurface = Color(0xFFffffff);
   static const Color lightCardBg = Color(0xFFffffff);
   static const Color lightTextPrimary = Color(0xFF1a1a2e);
   static const Color lightTextSecondary = Color(0xFF57606a);
   static const Color lightBorder = Color(0xFFd0d7de);
+
+  static Color textColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? textPrimary
+        : lightTextPrimary;
+  }
+
+  static Color secondaryColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? textSecondary
+        : lightTextSecondary;
+  }
+
+  static Color borderColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? border
+        : lightBorder;
+  }
+
+  static Color surfaceColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? surface
+        : lightSurface;
+  }
+
+  static Color cardColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? cardBg
+        : lightCardBg;
+  }
 }
 
 ThemeData buildDarkTheme() {

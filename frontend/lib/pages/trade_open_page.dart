@@ -217,7 +217,7 @@ class _TradeOpenPageState extends ConsumerState<TradeOpenPage> {
                     child: Material(
                       elevation: 4,
                       borderRadius: BorderRadius.circular(8),
-                      color: AppColors.surface,
+                      color: AppColors.surfaceColor(context),
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxHeight: 280),
                         child: ListView.builder(
@@ -321,7 +321,7 @@ class _TradeOpenPageState extends ConsumerState<TradeOpenPage> {
                   child: Text(
                     'Total cost: \$${_cost.toStringAsFixed(2)}',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: _cost > 0 ? AppColors.positive : AppColors.textSecondary,
+                          color: _cost > 0 ? AppColors.positive : AppColors.secondaryColor(context),
                         ),
                   ),
                 ),

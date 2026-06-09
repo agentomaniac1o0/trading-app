@@ -72,8 +72,8 @@ class TradingApp extends ConsumerWidget {
 
     return MaterialApp.router(
       title: 'Trading App',
-      theme: buildDarkTheme(),
-      darkTheme: buildLightTheme(),
+      theme: buildLightTheme(),
+      darkTheme: buildDarkTheme(),
       themeMode: themeMode,
       routerConfig: router,
       debugShowCheckedModeBanner: false,

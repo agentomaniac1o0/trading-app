@@ -59,8 +59,8 @@ class _TraderTile extends StatelessWidget {
             children: [
               Text(
                 trader.name,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
+                style: TextStyle(
+                  color: AppColors.textColor(context),
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),

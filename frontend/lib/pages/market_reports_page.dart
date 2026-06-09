@@ -73,7 +73,7 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
             ],
           ),
         ),
-        Container(width: 1, color: AppColors.border.withOpacity(0.4)),
+        Container(width: 1, color: AppColors.borderColor(context).withOpacity(0.4)),
         Expanded(
           child: _buildReportContent(),
         ),
@@ -124,7 +124,7 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
                   Text(
                     cat.label,
                     style: TextStyle(
-                      color: isSelected ? cat.color : AppColors.textSecondary,
+                      color: isSelected ? cat.color : AppColors.secondaryColor(context),
                       fontSize: 13,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                     ),
@@ -170,12 +170,12 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Row(
+child: Row(
                 children: [
                   Text(
                     'Report: $dateDisplay',
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
+                    style: TextStyle(
+                      color: AppColors.secondaryColor(context),
                       fontSize: 12,
                       fontStyle: FontStyle.italic,
                     ),
@@ -201,21 +201,21 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
                           'body': Style(
                             margin: Margins.zero,
                             padding: HtmlPaddings.zero,
-                            color: AppColors.textPrimary,
+                            color: AppColors.textColor(context),
                             fontSize: FontSize(14),
                           ),
                           'h2': Style(
-                            color: AppColors.textPrimary,
+                            color: AppColors.textColor(context),
                             fontSize: FontSize(17),
                             fontWeight: FontWeight.w700,
                           ),
                           'h3': Style(
-                            color: AppColors.textPrimary,
+                            color: AppColors.textColor(context),
                             fontSize: FontSize(15),
                             fontWeight: FontWeight.w600,
                           ),
                           'p': Style(
-                            color: AppColors.textPrimary,
+                            color: AppColors.textColor(context),
                             fontSize: FontSize(14),
                             lineHeight: const LineHeight(1.5),
                           ),
@@ -226,17 +226,17 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
                       data: content,
                       padding: const EdgeInsets.all(16),
                       styleSheet: MarkdownStyleSheet(
-                        h1: const TextStyle(
-                            color: AppColors.textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
-                        h2: const TextStyle(
-                            color: AppColors.textPrimary, fontSize: 17, fontWeight: FontWeight.w700),
-                        h3: const TextStyle(
-                            color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
-                        p: const TextStyle(color: AppColors.textPrimary, fontSize: 14, height: 1.5),
+                        h1: TextStyle(
+                            color: AppColors.textColor(context), fontSize: 20, fontWeight: FontWeight.bold),
+                        h2: TextStyle(
+                            color: AppColors.textColor(context), fontSize: 17, fontWeight: FontWeight.w700),
+                        h3: TextStyle(
+                            color: AppColors.textColor(context), fontSize: 14, fontWeight: FontWeight.w600),
+                        p: TextStyle(color: AppColors.textColor(context), fontSize: 14, height: 1.5),
                         code: TextStyle(
-                            color: AppColors.gold, backgroundColor: AppColors.cardBg, fontSize: 12),
+                            color: AppColors.gold, backgroundColor: AppColors.cardColor(context), fontSize: 12),
                         codeblockDecoration: BoxDecoration(
-                          color: AppColors.cardBg,
+                          color: AppColors.cardColor(context),
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
@@ -265,11 +265,11 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
               children: [
                 const Icon(Icons.auto_awesome, size: 48, color: AppColors.textSecondary),
                 const SizedBox(height: 12),
-                const Text('Kein Portfolio Review verfügbar',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 16)),
+                Text('Kein Portfolio Review verfügbar',
+                    style: TextStyle(color: AppColors.secondaryColor(context), fontSize: 16)),
                 const SizedBox(height: 8),
-                const Text('Die Trading Crew hat noch keinen Portfolio-Report generiert.',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                Text('Die Trading Crew hat noch keinen Portfolio-Report generiert.',
+                    style: TextStyle(color: AppColors.secondaryColor(context), fontSize: 12)),
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
                   onPressed: () => refreshPortfolioReview(ref),
@@ -293,12 +293,12 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
                 children: [
                   const Icon(Icons.auto_awesome, size: 16, color: AppColors.gold),
                   const SizedBox(width: 8),
-                  Text('Portfolio-Asset Review',
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                      )),
+Text('Portfolio-Asset Review',
+                       style: TextStyle(
+                         color: AppColors.textColor(context),
+                         fontSize: 17,
+                         fontWeight: FontWeight.w700,
+                       )),
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.refresh, size: 18),
@@ -328,8 +328,8 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
         child: SizedBox(width: 24, height: 24,
             child: CircularProgressIndicator(strokeWidth: 2)),
       ),
-      error: (_, __) => const Center(
-        child: Text('Fehler beim Laden', style: TextStyle(color: AppColors.textSecondary)),
+      error: (_, __) => Center(
+        child: Text('Fehler beim Laden', style: TextStyle(color: AppColors.secondaryColor(context))),
       ),
     );
   }
@@ -352,12 +352,12 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
           const SizedBox(height: 12),
           Text(
             'Kein Report verfügbar',
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 16),
+            style: TextStyle(color: AppColors.secondaryColor(context), fontSize: 16),
           ),
           const SizedBox(height: 4),
           Text(
             'Die Trading Crew hat noch keinen ${cat.label}-Report generiert.',
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+            style: TextStyle(color: AppColors.secondaryColor(context), fontSize: 12),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
