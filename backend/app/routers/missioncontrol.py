@@ -31,6 +31,9 @@ from app.schemas import (
     ProxmoxHost,
     ReportDetail,
     ReportListItem,
+    ServiceHistoryPoint,
+    ServiceHistoryResponse,
+    ServiceHistorySeries,
     ServiceStatus,
     SysUpdate,
     VmStatus,
@@ -915,6 +918,73 @@ def _tcp_check(host: str, port: int, timeout: float = 2.0) -> tuple[bool, int]:
     except Exception as e:
         logger.debug("TCP check %s:%s failed: %s", host, port, e)
         return False, 0
+
+
+# ── Service History ─────────────────────────────────────────────────────
+# In-memory store: {location: {service_name: [(ts, ms, online), ...]}}
+# Collected every 5 minutes by background task, keeps last 288 points (24h)
+_service_history: dict[str, dict[str, list[dict]]] = {}
+_HISTORY_MAX_POINTS = 288  # 24h at 5min intervals
+
+
+def _collect_service_history():
+    """Run TCP checks for all configured services and store results."""
+    now = datetime.now(timezone.utc).isoformat()
+
+    for location, tcp_key in [("home-lab", "live_tcp_home"), ("production-center", "live_tcp_prod")]:
+        tcp_str = getattr(settings, tcp_key, "")
+        checks = _parse_tcp_checks(tcp_str)
+
+        if location not in _service_history:
+            _service_history[location] = {}
+
+        for name, host, port in checks:
+            ok, ms = _tcp_check(host, port)
+            if name not in _service_history[location]:
+                _service_history[location][name] = []
+            entry = {
+                "timestamp": now,
+                "response_time_ms": ms,
+                "online": ok,
+            }
+            _service_history[location][name].append(entry)
+            # Trim to max points
+            if len(_service_history[location][name]) > _HISTORY_MAX_POINTS:
+                _service_history[location][name] = _service_history[location][name][-_HISTORY_MAX_POINTS:]
+
+
+@router.get("/{location}/services/history", response_model=ServiceHistoryResponse)
+async def get_service_history(location: str):
+    if location not in ("home-lab", "production-center"):
+        raise HTTPException(status_code=404, detail=f"Unknown location: {location}")
+
+    loc_data = _service_history.get(location, {})
+
+    # Build port map from config for the location
+    tcp_key = "live_tcp_home" if location == "home-lab" else "live_tcp_prod"
+    tcp_str = getattr(settings, tcp_key, "")
+    port_map = {name: port for name, _host, port in _parse_tcp_checks(tcp_str)}
+
+    services = []
+    for name, history in sorted(loc_data.items()):
+        services.append(ServiceHistorySeries(
+            name=name,
+            host="",
+            port=port_map.get(name, 0),
+            history=[
+                ServiceHistoryPoint(
+                    timestamp=h["timestamp"],
+                    response_time_ms=h["response_time_ms"],
+                    online=h["online"],
+                )
+                for h in history
+            ],
+        ))
+
+    return ServiceHistoryResponse(
+        services=services,
+        collected_at=datetime.now(timezone.utc).isoformat(),
+    )
 
 
 # ── Health ──────────────────────────────────────────────────────────────

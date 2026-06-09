@@ -323,3 +323,21 @@ class LiveCriticalCount(BaseModel):
     heartbeat_critical: int
     services_offline: int
     total: int
+
+
+class ServiceHistoryPoint(BaseModel):
+    timestamp: str
+    response_time_ms: int
+    online: bool
+
+
+class ServiceHistorySeries(BaseModel):
+    name: str
+    host: str
+    port: int
+    history: list[ServiceHistoryPoint]
+
+
+class ServiceHistoryResponse(BaseModel):
+    services: list[ServiceHistorySeries]
+    collected_at: str

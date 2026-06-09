@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from fastapi import FastAPI, Request, Response
@@ -51,6 +52,18 @@ app.include_router(judgments.router, prefix="/api")
 @app.on_event("startup")
 async def startup():
     await init_db()
+    asyncio.create_task(_periodic_service_history())
+
+
+async def _periodic_service_history():
+    """Collect service response times every 5 minutes for the history chart."""
+    await asyncio.sleep(10)  # Initial delay to let everything settle
+    while True:
+        try:
+            missioncontrol._collect_service_history()
+        except Exception:
+            pass
+        await asyncio.sleep(300)  # 5 minutes
 
 
 @app.get("/api/health")
