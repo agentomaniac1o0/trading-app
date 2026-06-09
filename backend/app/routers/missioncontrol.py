@@ -753,6 +753,7 @@ def _build_system_response(system_data: dict, overview: dict, top: dict | None =
             name=s.get("name", ""),
             online=s.get("online", True),
             port=s.get("port", 0),
+            host=s.get("host", "pve-1"),
         )
         for s in svc_data
     ]
