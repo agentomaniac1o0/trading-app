@@ -7,6 +7,16 @@ Cross-Platform Trading App (FastAPI + Flutter) mit Paper Trading und Erweiterung
 **Repo:** `~/trading-app/` (öffentlich auf GitHub)
 **Deployment:** ai-agents VM (CachyOS) — Tailscale-Only-Binding an `100.103.32.107`
 
+## Code Conventions
+
+| Sprach | Skill | Wann laden |
+|--------|-------|------------|
+| Python (Backend) | `/python-conventions` | FastAPI, async SQLAlchemy, Pydantic v2 |
+| Dart (Frontend) | `/flutter-conventions` | Riverpod, Widgets, State Management |
+| Beide | `/code-quality` | Nach jeder Code-Generierung |
+| Security-Änderungen | `/security-conventions` | Secrets, Input Validation |
+| Tests | `/testing-conventions` | pytest, flutter_test |
+
 ## Architektur
 
 ```
@@ -644,4 +654,13 @@ cd ~/trading-app/frontend && flutter build apk --release --dart-define=API_BASE_
 - Flatpak: rebuilt & installed
 - Backend: restarted (systemctl --user restart trading-backend.service)
 - Git: 2 Commits (`da79ce3`, `1ad83ed`)
+
+## Session-Log: 2026-06-10 – Portfolio Review Parser Fix
+
+### Judgment-Parser: Neues Report-Format unterstützt
+- **Bug:** PA=F (Palladium) und SOXX (Halbleiter) hatten 0 Trader-Judgments im Portfolio Review
+- **Root Cause:** Writer-Formatänderung: `**Palladium (PA=F) – LONG** (LONG x1)` statt `**Palladium (PA=F)** (LONG x1)`. `_parse_header()`-Regex konnte `– LONG`/`– SHORT` zwischen Symbol und Direction nicht matchen
+- **Fix 1:** `_parse_header()` Regex in `reports.py:44` erweitert um `(?:[–\-]\s*\w+\s*)?` für optionales Richtungs-Label
+- **Fix 2:** `_parse_judgment()` Regex in `reports.py:60` erlaubt jetzt `/` und Leerzeichen im Judgment-Text (BEARISH/SHORT, HALTEN (Verkauf erwägen))
+- **Fix 3:** Judgment-Merge keyed jetzt nach `(symbol, direction)` statt nur `symbol` → LONG/SHORT bekommen unterschiedliche, richtige Urteile (in `portfolio.py:153` und `reports.py:179`)
 

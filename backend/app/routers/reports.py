@@ -41,7 +41,7 @@ def _find_latest_report() -> str | None:
 
 def _parse_header(line: str):
     line = line.lstrip("\u2022").strip().replace("**", "")
-    m = re.match(r"(.+?)\s*\(([\w=.\-]+)\)\s*\((\w+)\s*(?:x)?(\d+)\b", line)
+    m = re.match(r"(.+?)\s*\(([\w=.\-]+)\)\s*(?:[–\-]\s*\w+\s*)?\((\w+)\s*(?:x)?(\d+)\b", line)
     if not m:
         return None
     name = m.group(1).strip()
@@ -57,11 +57,11 @@ def _parse_header(line: str):
 
 def _parse_judgment(line: str):
     m = re.match(
-        r"\s*[–\-]\s*(Buffett|Lynch|Soros|Wood|Saylor)\s*:\s*(\w+)\s*[–\-]?\s*(.+)",
+        r"\s*[–\-]\s*(Buffett|Lynch|Soros|Wood|Saylor)\s*:\s*(.+?)\s*[–\-]\s*(.*)",
         line,
     )
     if m:
-        return m.group(1).lower(), m.group(2).upper(), m.group(3).strip()
+        return m.group(1).lower(), m.group(2).strip().upper(), m.group(3).strip()
     return None
 
 
@@ -176,6 +176,7 @@ async def latest_portfolio_review(db: AsyncSession = Depends(get_db)):
             pnl = (trade.price_open - price_current) * trade.quantity
         b["total_pnl"] += pnl
 
+    judgments_by_key: dict[tuple[str, str], list[PortfolioJudgment]] = {}
     judgments_by_symbol: dict[str, list[PortfolioJudgment]] = {}
     for trade in open_trades:
         sym = trade.symbol
@@ -196,8 +197,9 @@ async def latest_portfolio_review(db: AsyncSession = Depends(get_db)):
             parsed = _parse_portfolio_review(text)
             if parsed:
                 for asset in parsed.assets:
-                    if asset.symbol not in judgments_by_symbol:
-                        judgments_by_symbol[asset.symbol] = asset.judgments
+                    key = (asset.symbol, asset.direction)
+                    if key not in judgments_by_key:
+                        judgments_by_key[key] = asset.judgments
         except Exception as e:
             logger.warning("Portfolio review parse failed: %s", e)
 
@@ -208,7 +210,8 @@ async def latest_portfolio_review(db: AsyncSession = Depends(get_db)):
         qty = int(b["total_qty"])
         name_clean = b["name"].replace(f" ({b['symbol']})", "")
         sym = b["symbol"]
-        j = judgments_by_symbol.get(sym, [])
+        dir_key = (sym, b["direction"])
+        j = judgments_by_key.get(dir_key) or judgments_by_symbol.get(sym, [])
 
         assets.append(
             PortfolioReviewAsset(
