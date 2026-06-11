@@ -664,3 +664,17 @@ cd ~/trading-app/frontend && flutter build apk --release --dart-define=API_BASE_
 - **Fix 2:** `_parse_judgment()` Regex in `reports.py:60` erlaubt jetzt `/` und Leerzeichen im Judgment-Text (BEARISH/SHORT, HALTEN (Verkauf erwägen))
 - **Fix 3:** Judgment-Merge keyed jetzt nach `(symbol, direction)` statt nur `symbol` → LONG/SHORT bekommen unterschiedliche, richtige Urteile (in `portfolio.py:153` und `reports.py:179`)
 
+
+
+## Session-Log: 2026-06-11 — Assets ergänzt
+
+**Task:** Fehlende Aktien-Assets in ASSET_DB hinzugefügt
+**Durch:** Hermes Agent (OpenCode nicht verfügbar — Go API Limit)
+
+**Änderungen:**
+- `backend/app/services/asset_db.py`: 3 neue Einträge
+  - Johnson & Johnson (JNJ, pharma)
+  - Procter & Gamble (PG, konsum)
+  - United Health (UNH, pharma)
+
+**Status:** ✅ Committed & gepusht

@@ -54,6 +54,9 @@ ASSET_DB = {
     "Dollar/Yen":      {"symbol": "JPY=X",    "market": "forex"},
     "Pfund/Dollar":    {"symbol": "GBPUSD=X", "market": "forex"},
 
+    "Johnson & Johnson":  {"symbol": "JNJ",    "market": "pharma"},
+    "Procter & Gamble":   {"symbol": "PG",     "market": "konsum"},
+    "United Health":      {"symbol": "UNH",    "market": "pharma"},
     # ── Top 100 Krypto nach Market Cap (Coingecko, 2026-05-30) ───────────────────
     # Stablecoins/USD-Tokens und nicht-handelbare Assets gefiltert.
     "Hyperliquid":     {"symbol": "HYPE",   "market": "crypto"},
