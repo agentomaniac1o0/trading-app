@@ -231,10 +231,8 @@ def _compute_score_from_text(text: str) -> int:
     return max(0, min(100, score))
 
 
-def _parse_system_from_md(path: str) -> dict:
-    with open(path, encoding="utf-8") as f:
-        text = f.read()
-
+def _parse_host_from_text(text: str) -> dict:
+    """Extract Proxmox host status from report text (RAM, CPU, uptime, kernel)."""
     host = {
         "cpu_percent": 0.0,
         "ram_percent": 0.0,
@@ -258,18 +256,17 @@ def _parse_system_from_md(path: str) -> dict:
             avail = float(m_ram_avail.group(1).replace(",", "."))
             host["ram_percent"] = round((total - avail) / total * 100, 1) if total > 0 else 0.0
 
-    # Host CPU: new format "Load | 0.11 / 0.07 / 0.03 (sehr gering)"
-    #            old format "Load Average | 0.68 / 0.50 / 0.42"
+    # Host CPU
     m_load = re.search(r"\*?\*?Load(?: Average)?\*?\*?\s*\|\s*([\d.,]+)\s*/\s*[\d.,]+\s*/\s*[\d.,]+", text)
     if m_load:
         host["cpu_percent"] = float(m_load.group(1).replace(",", ".")) * 15
 
-    # Host uptime: handles "| Uptime | 9 Tage, 16 Stunden |" and "| **Uptime** | 9 Tage, 16 Stunden |"
+    # Host uptime
     m_uptime = re.search(r"\|\s*\*?\*?Uptime\*?\*?\s*\|\s*([^|\n]+)", text)
     if m_uptime:
         host["uptime"] = m_uptime.group(1).strip()
 
-    # Host kernel: handles "| Kernel | 6.8.12..." and "| **Kernel** | Linux 6.8.12..."
+    # Host kernel
     m_kernel = re.search(r"\|\s*\*?\*?Kernel\*?\*?\s*\|\s*(?:Linux\s+)?([^|\n]+)", text)
     if m_kernel:
         host["kernel_version"] = m_kernel.group(1).strip()
@@ -277,10 +274,11 @@ def _parse_system_from_md(path: str) -> dict:
     host["updates_pending"] = (
         "⚠️" in text and ("update verfügbar" in text.lower() or "ausstehende updates" in text.lower())
     )
+    return host
 
-    # VMs — parse the VM-STATUS table, supports multiple report formats
-    # Old format: | VM-ID | Name | Status | CPUs | RAM (max) | RAM (akt.) | CPU-Auslastung | Uptime |
-    # New format: | VM/Container | Name | Status | CPUs | RAM (alloc) | RAM (used) | CPU% | Uptime |
+
+def _parse_vms_from_text(text: str) -> list[dict]:
+    """Parse VM/LXC table from report text, including disk percentage patching."""
     vms = []
     in_vm_table = False
     for line in text.splitlines():
@@ -323,10 +321,6 @@ def _parse_system_from_md(path: str) -> dict:
                         cpu_pct = val
                     else:
                         ram_pct = val
-                m_ram = re.search(r"([\d.]+)\s*GB", c_clean)
-                if m_ram and ram_pct == 0.0:
-                    ram_alloc = float(m_ram.group(1))
-            # RAM actual
             ram_pct = 0.0
             if len(cols) >= 6:
                 ram_alloc_str = cols[4].replace(",", ".").replace("GB", "").replace(" ", "")
@@ -360,10 +354,22 @@ def _parse_system_from_md(path: str) -> dict:
         elif in_vm_table and not stripped.startswith("|") and stripped and not stripped.startswith("*"):
             in_vm_table = False
 
-    # Set disk percentages from storage section (5.1 / SPEICHERPLATZ)
-    # Format varies: | **VM 100 (Nextcloud)** | / | 114 GB | 2.8 GB | 106 GB | 3 % |
-    #                | | /mnt/nextcloud-data | 984 GB | 48 GB | 886 GB | 6 % |
-    #                | **LXC 102 (Ghost Blog)** | / | 25 GB | 6.5 GB | 17 GB | 28 % |
+    # Patch disk percentages from storage section
+    disk_map = _parse_disk_map_from_text(text)
+    for vm in vms:
+        vm_id = re.search(r"(\d+)", vm["name"].split(":")[0])
+        vm_num = vm_id.group(1) if vm_id else ""
+        for key, pct in disk_map.items():
+            key_num = re.search(r"(\d+)", key)
+            key_n = key_num.group(1) if key_num else ""
+            if key.lower() in vm["name"].lower() or (vm_num and key_n and vm_num == key_n):
+                vm["disk_percent"] = pct
+                break
+    return vms
+
+
+def _parse_disk_map_from_text(text: str) -> dict[str, float]:
+    """Extract disk percentage map from storage section."""
     disk_map = {}
     current_key = None
     for line in text.splitlines():
@@ -375,30 +381,23 @@ def _parse_system_from_md(path: str) -> dict:
         pct_m = re.search(r"\|\s*\*?\*?(\d+)\s*%\*?\*?\s*\|", line)
         if pct_m and current_key:
             pct = float(pct_m.group(1))
-            mnt = re.search(r"\|\s*/\s*\|", line)  # root mount?
+            mnt = re.search(r"\|\s*/\s*\|", line)
             if mnt and current_key not in disk_map:
                 disk_map[current_key] = pct
             elif current_key not in disk_map:
                 disk_map[current_key] = pct
-    for vm in vms:
-        vm_id = re.search(r"(\d+)", vm["name"].split(":")[0])
-        vm_num = vm_id.group(1) if vm_id else ""
-        for key, pct in disk_map.items():
-            key_num = re.search(r"(\d+)", key)
-            key_n = key_num.group(1) if key_num else ""
-            if key.lower() in vm["name"].lower() or (vm_num and key_n and vm_num == key_n):
-                vm["disk_percent"] = pct
-                break
+    return disk_map
 
-    # Services — from "DIENSTE" section
+
+def _parse_services_from_text(text: str) -> list[dict]:
+    """Extract services from 'DIENSTE' section of report."""
     services = []
     in_svc_section = False
-    svc_host = "pve-1"  # default
+    svc_host = "pve-1"
     for line in text.splitlines():
         stripped = line.strip()
         if stripped.startswith("##") and ("## 3." in stripped or ("dienst" in stripped.lower() and "status" in stripped.lower())):
             in_svc_section = True
-            # Extract host info from heading: e.g. "DIENSTE (VM 100 – Nextcloud)"
             host_m = re.search(r'\((VM \d+|LXC \d+|pve-\d+).*?[–\-]\s*(.+?)\)', stripped)
             if host_m:
                 svc_host = f"{host_m.group(1)} – {host_m.group(2).strip()}"
@@ -413,12 +412,10 @@ def _parse_system_from_md(path: str) -> dict:
             if len(cols) >= 2:
                 svc_name = cols[0].strip().lstrip("*").strip()
                 status_raw = cols[1].strip()
-                # Skip table headers/separators and non-service rows
                 if svc_name in ("Dienst", "Priorität", "---", "") or "---" in svc_name:
                     continue
                 if svc_name and any(c.isalpha() for c in svc_name) and len(svc_name) > 2:
                     online = ("✅" in status_raw or "🟢" in status_raw) and "inaktiv" not in status_raw.lower()
-                    # Services with "–" status but have a version reported → running
                     if not online and len(cols) >= 3:
                         version = cols[2].strip()
                         if version and version != "–" and not version.lower().startswith("n/a"):
@@ -436,12 +433,14 @@ def _parse_system_from_md(path: str) -> dict:
                             "host": svc_host,
                         })
 
-    # Ensure key services from VM 101 are listed (from config)
     for svc_entry in _parse_known_services(settings.known_services_str):
         if not any(s["name"] == svc_entry["name"] for s in services):
             services.append(svc_entry)
+    return services
 
-    # Backups — parse "BACKUPS" section table
+
+def _parse_backups_from_text(text: str) -> list[dict]:
+    """Extract backup status from BACKUPS section."""
     backups = []
     in_bkp_section = False
     for line in text.splitlines():
@@ -467,8 +466,11 @@ def _parse_system_from_md(path: str) -> dict:
                     })
                 except (ValueError, IndexError):
                     logger.debug("Backup date parse failed")
+    return backups
 
-    # Updates per system — parse combined "Ausstehende Updates / Reboot" table
+
+def _parse_updates_enriched_from_text(text: str) -> tuple[list[dict], dict[str, str], dict[str, list], dict[str, list]]:
+    """Extract updates table, kernel map, fix/warn maps from report."""
     updates = []
     in_upd_section = False
     for line in text.splitlines():
@@ -491,7 +493,20 @@ def _parse_system_from_md(path: str) -> dict:
                     "auto_fixes": [],
                 })
 
-    # Parse kernel versions from section 6b — match by numeric ID
+    kernel_map = _parse_kernel_map_from_text(text)
+    fix_map, warn_map = _parse_fixes_from_text(text)
+
+    for u in updates:
+        vid = _extract_vm_num(u["system"])
+        u["kernel"] = kernel_map.get(vid, "")
+        u["auto_fixes"] = fix_map.get(vid, [])
+        u["warnings"] = warn_map.get(vid, [])
+        u["details"] = fix_map.get(vid, []) + warn_map.get(vid, [])
+    return updates, kernel_map, fix_map, warn_map
+
+
+def _parse_kernel_map_from_text(text: str) -> dict[str, str]:
+    """Extract kernel version map from section 6b."""
     kernel_map = {}
     in_kern_section = False
     for line in text.splitlines():
@@ -512,8 +527,11 @@ def _parse_system_from_md(path: str) -> dict:
                 else:
                     k_info = cols[1]
                 kernel_map[vid] = k_info
+    return kernel_map
 
-    # Parse auto-fixes — match by numeric ID
+
+def _parse_fixes_from_text(text: str) -> tuple[dict[str, list], dict[str, list]]:
+    """Extract auto-fix and warning maps from report."""
     fix_map: dict[str, list] = {}
     warn_map: dict[str, list] = {}
     in_fix = False
@@ -540,14 +558,19 @@ def _parse_system_from_md(path: str) -> dict:
             detail = re.sub(r"^[-⚠️\s]+", "", s).strip()
             vid = _extract_vm_num(detail)
             warn_map.setdefault(vid, []).append(detail)
+    return fix_map, warn_map
 
-    for u in updates:
-        vid = _extract_vm_num(u["system"])
-        sys_name = u["system"]
-        u["kernel"] = kernel_map.get(vid, "")
-        u["auto_fixes"] = fix_map.get(vid, [])
-        u["warnings"] = warn_map.get(vid, [])
-        u["details"] = fix_map.get(vid, []) + warn_map.get(vid, [])
+
+def _parse_system_from_md(path: str) -> dict:
+    """Parse full system status from monitoring markdown report."""
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+
+    host = _parse_host_from_text(text)
+    vms = _parse_vms_from_text(text)
+    services = _parse_services_from_text(text)
+    backups = _parse_backups_from_text(text)
+    updates, _kernel_map, _fix_map, _warn_map = _parse_updates_enriched_from_text(text)
 
     return {
         "host": host,

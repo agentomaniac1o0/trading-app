@@ -61,8 +61,8 @@ async def _periodic_service_history():
     while True:
         try:
             missioncontrol._collect_service_history()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Service history collection failed: %s", e)
         await asyncio.sleep(300)  # 5 minutes
 
 
