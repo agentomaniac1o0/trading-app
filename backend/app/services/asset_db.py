@@ -25,6 +25,7 @@ ASSET_DB = {
     "American Tower":  {"symbol": "AMT",    "market": "technologie"},
     "Nio":             {"symbol": "NIO",    "market": "technologie"},
     "Alibaba":         {"symbol": "BABA",   "market": "technologie"},
+    "JD.com":          {"symbol": "JD",     "market": "technologie"},
     "Energy ETF":      {"symbol": "XLE",    "market": "rohstoff"},
     "Lithium ETF":     {"symbol": "LIT",    "market": "rohstoff"},
     "Consumer Staples": {"symbol": "XLP",    "market": "etf"},
