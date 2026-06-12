@@ -13,6 +13,7 @@ ASSET_DB = {
     "Robotik":         {"symbol": "ROBO",  "market": "technologie"},
     "Cyber Security":  {"symbol": "HACK",  "market": "technologie"},
     "Nvidia":          {"symbol": "NVDA",   "market": "technologie"},
+    "AMD":             {"symbol": "AMD",    "market": "technologie"},
     "Microsoft":       {"symbol": "MSFT",   "market": "technologie"},
     "Alphabet":        {"symbol": "GOOGL",  "market": "technologie"},
     "Meta":            {"symbol": "META",   "market": "technologie"},
