@@ -678,3 +678,16 @@ cd ~/trading-app/frontend && flutter build apk --release --dart-define=API_BASE_
   - United Health (UNH, pharma)
 
 **Status:** ✅ Committed & gepusht
+
+## Session-Log: 2026-06-12 — Assets ergänzt + SSH-LAN-Binding
+
+### Asset-DB: AMD + JD.com
+- `backend/app/services/asset_db.py`: 2 neue Einträge
+  - AMD (AMD, technologie) — auf Anfrage hinzugefügt
+  - JD.com (JD, technologie) — auf Anfrage hinzugefügt
+- Commits: `365869b`, `647a3e1` — beide gepusht
+
+### SSH-LAN-Binding repariert (erneut)
+- **Problem:** SSH lauschte nur auf Tailscale-IP `100.103.32.107` — Hermes Cronjob "Daily Stock Images" schlug fehl (RuntimeError: Connection error)
+- **Root Cause:** `sshd` lief seit 5 Tagen (seit 2026-06-07), `ListenAddress 192.168.0.61` in `sshd_config:128` war nie aktiv
+- **Fix:** `sudo systemctl reload ssh.service` — beide IPs jetzt aktiv
