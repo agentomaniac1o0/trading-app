@@ -691,3 +691,22 @@ cd ~/trading-app/frontend && flutter build apk --release --dart-define=API_BASE_
 - **Problem:** SSH lauschte nur auf Tailscale-IP `100.103.32.107` — Hermes Cronjob "Daily Stock Images" schlug fehl (RuntimeError: Connection error)
 - **Root Cause:** `sshd` lief seit 5 Tagen (seit 2026-06-07), `ListenAddress 192.168.0.61` in `sshd_config:128` war nie aktiv
 - **Fix:** `sudo systemctl reload ssh.service` — beide IPs jetzt aktiv
+
+## Session-Log: 2026-06-16 — Asset-DB erweitert + net_available Fix
+
+### Asset-DB: Namen bereinigt + XOM + CVX
+- `"Halbleiter" → "iShares PHLX Semiconductor Sector Index ETF"` (SOXX)
+- `"Energy ETF" → "Energy Select Sector SPDR"` (XLE)
+- `+ "Exxon Mobil" (XOM)`, `+ "Chevron" (CVX)`
+- Gleiche Anpassungen in `trading-crew/config.py` (Keys: Halbleiter→SOXX, Energy_ETF→XLE)
+- Commits: `89ff0b1` (trading-app), `9b8cc87` (trading-crew)
+
+### net_available: Shorts reduzieren jetzt verfügbares Kapital
+- **Bug:** Short-Positionen reduzierten `net_available` nicht — Cash stieg um Short-Erlöse, `short_exposure` zog nur Marktwert ab → Netto-Effekt bei Eröffnung = 0
+- **Fix:** `portfolio.py:60` — `net_available = cash - invested_short_cost - short_exposure`
+- Symmetrisch zu Longs: SHORT $1K reduziert net_available um $1K, LONG $1K ebenfalls
+- Commit: `1cf0a9c`
+
+### Backend-Auto-Restart via `--reload`
+- `trading-backend.service`: `--reload` Flag + `ExecReload` hinzugefügt
+- Service startet bei jeder `.py`-Änderung automatisch neu
