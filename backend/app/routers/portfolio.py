@@ -57,7 +57,7 @@ def _portfolio_kpis(initial_capital: float, closed_pnl: float, unrealized_pnl: f
     portfolio_value = round(initial_capital + total_pnl, 2)
     cash = round(initial_capital - invested_long + invested_short_cost + closed_pnl, 2)
     short_exposure = round(invested_market_short, 2)
-    net_available = round(cash - short_exposure, 2)
+    net_available = round(cash - invested_short_cost - short_exposure, 2)
     invested = round(invested_long + invested_short_cost, 2)
     invested_market = round(invested_market_long - invested_market_short, 2)
     return {
