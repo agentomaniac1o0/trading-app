@@ -16,7 +16,7 @@ from app.schemas import (
     PortfolioReviewResponse,
     PortfolioSummary,
 )
-from app.services.evaluator import is_eval_running, trigger_evaluation
+from app.services.evaluator import is_eval_running, sync_judgments_from_report, trigger_evaluation
 from app.services.price_engine import get_price
 
 from app.routers.reports import _find_latest_report, _parse_portfolio_review
@@ -176,6 +176,8 @@ async def get_portfolio_review(db: AsyncSession = Depends(get_db)):
                         judgments_by_key[key] = asset.judgments
         except Exception as e:
             logger.warning("Report file read failed: %s", e)
+
+    asyncio.create_task(sync_judgments_from_report(db))
 
     asset_info: dict[str, tuple[str, str]] = {}
     for trade in open_trades:

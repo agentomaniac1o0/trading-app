@@ -6,8 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.database import init_db
+from app.database import async_session, init_db
 from app.routers import judgments, missioncontrol, portfolio, prices, reports, trades, traders
+from app.services.evaluator import sync_judgments_from_report
 
 logger = logging.getLogger(__name__)
 
@@ -52,18 +53,33 @@ app.include_router(judgments.router, prefix="/api")
 @app.on_event("startup")
 async def startup():
     await init_db()
-    asyncio.create_task(_periodic_service_history())
+    asyncio.create_task(_sync_and_monitor())
+
+
+async def _sync_and_monitor():
+    """Sync report judgments to DB, then start periodic monitoring."""
+    await asyncio.sleep(5)
+    try:
+        async with async_session() as db:
+            n = await sync_judgments_from_report(db)
+            if n:
+                logger.info("Startup sync complete: %d judgments imported", n)
+            else:
+                logger.info("Startup sync: no new judgments found")
+    except Exception as e:
+        logger.warning("Startup report sync failed: %s", e)
+
+    await _periodic_service_history()
 
 
 async def _periodic_service_history():
     """Collect service response times every 5 minutes for the history chart."""
-    await asyncio.sleep(10)  # Initial delay to let everything settle
     while True:
         try:
             missioncontrol._collect_service_history()
         except Exception as e:
             logger.warning("Service history collection failed: %s", e)
-        await asyncio.sleep(300)  # 5 minutes
+        await asyncio.sleep(300)
 
 
 @app.get("/api/health")

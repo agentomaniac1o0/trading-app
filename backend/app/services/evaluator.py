@@ -1,13 +1,19 @@
 """
-Background evaluation trigger.
+Background evaluation trigger and report-judgment sync.
 Called when a trade is opened to start an async trader evaluation.
 """
-
+import asyncio
 import logging
 import os
 import re
 import subprocess
 import time
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app import crud
+from app.routers.reports import _find_latest_report, _parse_portfolio_review
+from app.schemas import TraderJudgmentCreate
 
 EVAL_PYTHON = os.path.expanduser("~/trading-crew/.venv/bin/python")
 EVAL_SCRIPT = os.path.expanduser("~/trading-crew/evaluate.py")
@@ -50,6 +56,57 @@ def is_eval_running(symbol: str, direction: str) -> bool:
     return f"{symbol}_{direction}" in _EVAL_LOCKS
 
 
+async def sync_judgments_from_report(db: AsyncSession) -> int:
+    """Parse latest report and persist portfolio judgments to DB."""
+    path = _find_latest_report()
+    if not path:
+        logger.info("No report file found for sync")
+        return 0
+
+    try:
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+    except Exception as e:
+        logger.warning("Cannot read report %s: %s", path, e)
+        return 0
+
+    parsed = _parse_portfolio_review(text)
+    if not parsed or not parsed.assets:
+        logger.info("No portfolio review assets found in %s", path)
+        return 0
+
+    total = 0
+    for asset in parsed.assets:
+        if not asset.judgments:
+            continue
+        existing = await crud.get_judgments(db, asset.symbol)
+        existing_keys = {(j.trader, j.direction) for j in existing}
+        new_judgments = [
+            TraderJudgmentCreate(
+                symbol=asset.symbol,
+                direction=asset.direction,
+                trader=j.trader,
+                judgment=j.judgment,
+                reason=j.reason,
+            )
+            for j in asset.judgments
+            if (j.trader, asset.direction) not in existing_keys
+        ]
+        if new_judgments:
+            await crud.create_judgments(db, new_judgments)
+            total += len(new_judgments)
+            logger.info(
+                "Synced %d judgments for %s %s",
+                len(new_judgments), asset.symbol, asset.direction,
+            )
+
+    if total:
+        logger.info("Report sync complete: %d new judgments", total)
+    else:
+        logger.info("Report sync: no new judgments needed")
+    return total
+
+
 async def trigger_evaluation(symbol: str, asset: str, direction: str, market: str):
     err = _validate_params(symbol, asset, direction, market)
     if err:
@@ -64,23 +121,36 @@ async def trigger_evaluation(symbol: str, asset: str, direction: str, market: st
         return
     _EVAL_LOCKS[lock_key] = time.time()
 
+    if not os.path.exists(EVAL_SCRIPT):
+        logger.error(
+            "evaluate.py not found at %s. Cannot evaluate %s (%s %s). "
+            "Install evaluate.py in trading-crew or the crew will generate "
+            "judgments on next scheduled run.",
+            EVAL_SCRIPT, symbol, asset, direction,
+        )
+        _EVAL_LOCKS.pop(lock_key, None)
+        return
+
     try:
         os.makedirs(EVAL_LOG_DIR, exist_ok=True)
-        err_fh = open(EVAL_LOG_FILE, "a")
-        proc = subprocess.Popen(
-            [
-                EVAL_PYTHON,
-                EVAL_SCRIPT,
-                "--symbol", symbol,
-                "--asset", asset,
-                "--direction", direction,
-                "--market", market,
-            ],
-            cwd=os.path.dirname(EVAL_SCRIPT),
-            stdout=err_fh,
-            stderr=err_fh,
+        with open(EVAL_LOG_FILE, "a") as err_fh:
+            proc = subprocess.Popen(
+                [
+                    EVAL_PYTHON,
+                    EVAL_SCRIPT,
+                    "--symbol", symbol,
+                    "--asset", asset,
+                    "--direction", direction,
+                    "--market", market,
+                ],
+                cwd=os.path.dirname(EVAL_SCRIPT),
+                stdout=err_fh,
+                stderr=err_fh,
+            )
+        logger.info(
+            "Triggered evaluation for %s (%s %s) pid=%d",
+            symbol, asset, direction, proc.pid,
         )
-        logger.info("Triggered evaluation for %s (%s %s) pid=%d", symbol, asset, direction, proc.pid)
     except Exception as e:
         logger.error("Failed to trigger evaluation for %s: %s", symbol, e)
         _EVAL_LOCKS.pop(lock_key, None)
