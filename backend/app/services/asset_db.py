@@ -58,6 +58,8 @@ ASSET_DB = {
     "Dollar/Yen":      {"symbol": "JPY=X",    "market": "forex"},
     "Pfund/Dollar":    {"symbol": "GBPUSD=X", "market": "forex"},
 
+    "Visa":            {"symbol": "V",      "market": "forex"},
+    "Biotech ETF":     {"symbol": "XBI",    "market": "pharma"},
     "Johnson & Johnson":  {"symbol": "JNJ",    "market": "pharma"},
     "Procter & Gamble":   {"symbol": "PG",     "market": "konsum"},
     "United Health":      {"symbol": "UNH",    "market": "pharma"},
