@@ -47,6 +47,8 @@ router = APIRouter(prefix="/missioncontrol", tags=["missioncontrol"])
 MONITORING_DIR = os.path.expanduser("~/agent-templates/monitoring")
 REPORTS_DIR = os.path.join(MONITORING_DIR, "reports")
 AUDIT_LOG = os.path.join(MONITORING_DIR, "security_audit_log.json")
+CODE_QUALITY_LOG = os.path.join(MONITORING_DIR, "code_quality_log.json")
+SECURITY_FIX_LOG = os.path.join(MONITORING_DIR, "security_fix_log.json")
 
 # ── Production-Center Pfade (via SSH-Pull) ─────────────────────────────
 PROD_MONITORING_DIR = os.path.expanduser("~/agent-templates/monitoring/production-center")
@@ -602,6 +604,8 @@ def _parse_code_quality() -> dict:
         except Exception as e:
             logger.warning("Code quality report time parse failed: %s", e)
 
+    # ── 1. security_audit_log.json (letzter Eintrag) ────────────────────
+    audit_timestamp = ""
     if os.path.exists(AUDIT_LOG):
         with open(AUDIT_LOG, encoding="utf-8") as f:
             try:
@@ -613,13 +617,14 @@ def _parse_code_quality() -> dict:
             if isinstance(data, list):
                 data = data[-1] if data else {}
 
+            audit_timestamp = data.get("timestamp", "")
             for finding in data.get("findings", []):
                 ft = finding.get("type", "")
                 if ft == "hardcoded_secret":
                     hardcoded_secrets += 1
                 elif ft == "bare_except":
                     bare_excepts += 1
-                elif "port" in ft or "interface" in ft:
+                elif "port" in (ft or "") or "interface" in (ft or ""):
                     open_ports.append(
                         {
                             "port": finding.get("port", 0),
@@ -636,6 +641,67 @@ def _parse_code_quality() -> dict:
                     }
                 )
 
+    # ── 2. code_quality_log.json (Subagent-Findings) ────────────────────
+    if os.path.exists(CODE_QUALITY_LOG):
+        with open(CODE_QUALITY_LOG, encoding="utf-8") as f:
+            try:
+                cq_entries = json.load(f)
+            except (json.JSONDecodeError, Exception) as e:
+                logger.warning("Code quality log JSON parse failed: %s", e)
+                cq_entries = []
+
+            for entry in cq_entries:
+                svc = entry.get("service", "")
+                ts = entry.get("timestamp", "")
+                summary = entry.get("summary", "")
+                files = entry.get("files", [])
+                # Skip test entries
+                if "Test-Eintrag" in summary:
+                    continue
+                severity = "high" if entry.get("critical", 0) > 0 else "medium"
+                findings.append(
+                    {
+                        "severity": severity,
+                        "title": f"[{svc}] {ts[:10]} – {summary[:100]}",
+                        "description": f"Dateien: {', '.join(files[:5])} | Critical={entry.get('critical',0)} High={entry.get('high',0)} Medium={entry.get('medium',0)}",
+                        "auto_fixed": False,
+                    }
+                )
+
+    # ── 3. security_fix_log.json (Auto-Fix-Ergebnisse) ──────────────────
+    if os.path.exists(SECURITY_FIX_LOG):
+        with open(SECURITY_FIX_LOG, encoding="utf-8") as f:
+            try:
+                fix_entries = json.load(f)
+            except (json.JSONDecodeError, Exception) as e:
+                logger.warning("Security fix log JSON parse failed: %s", e)
+                fix_entries = []
+
+            # Nur die letzten 10 Fixes als findings anzeigen
+            for entry in fix_entries[-10:]:
+                action = entry.get("action", "")
+                # Skip duplicate "verify=False ist intern" messages
+                if "verify=False ist intern" in action:
+                    if not auto_fix_results:
+                        auto_fix_results.append(
+                            "SSL verify=False in Überwachungs-Scripts → intern, kein Fix nötig"
+                        )
+                    continue
+                ts = entry.get("timestamp", "")
+                auto_fix_results.append(f"[{ts[:10]}] {action[:120]}")
+                findings.append(
+                    {
+                        "severity": "low",
+                        "title": f"[Auto-Fix] {entry.get('file', '')}",
+                        "description": action[:200],
+                        "auto_fixed": True,
+                    }
+                )
+
+    # Fallback last_report auf audit timestamp wenn kein Report vorhanden
+    if not last_report and audit_timestamp:
+        last_report = audit_timestamp
+
     return {
         "findings": findings,
         "open_ports": open_ports,
@@ -647,29 +713,77 @@ def _parse_code_quality() -> dict:
 
 
 def _parse_code_quality_prod() -> dict:
+    findings: list[dict] = []
+    open_ports: list[dict] = []
+    hardcoded_secrets = 0
+    bare_excepts = 0
+    auto_fix_results: list[str] = []
+    last_report = ""
+
     if not os.path.exists(PROD_AUDIT_LOG):
-        return {"findings": [], "open_ports": [], "hardcoded_secrets": 0, "bare_excepts": 0, "auto_fix_results": []}
-    try:
-        with open(PROD_AUDIT_LOG, encoding="utf-8") as f:
-            data = json.load(f)
-        findings = []
-        for fg in data.get("findings", []):
-            findings.append({
-                "severity": fg.get("severity", "low").lower(),
-                "title": (fg.get("detail") or fg.get("title") or fg.get("description", ""))[:80],
-                "description": fg.get("detail") or fg.get("description", ""),
-                "auto_fixed": fg.get("auto_fixed", False),
-            })
         return {
-            "findings": findings,
-            "open_ports": [],
-            "hardcoded_secrets": sum(1 for f in findings if any(kw in (f.get("title","")+f.get("description","")).lower() for kw in ["hardcoded","secret","credential","api_key","passwort"])),
-            "bare_excepts": sum(1 for f in findings if any(kw in (f.get("title","")+f.get("description","")).lower() for kw in ["bare except","silent fail","except","timeout","try/finally","finally"])),
-            "auto_fix_results": [f["title"][:60] for f in findings if f.get("auto_fixed")] + data.get("auto_fix_results", []),
+            "findings": [], "open_ports": [], "hardcoded_secrets": 0,
+            "bare_excepts": 0, "auto_fix_results": [], "last_report": "",
         }
-    except (json.JSONDecodeError, Exception) as e:
-        logger.warning("Production audit log parse failed: %s", e)
-        return {"findings": [], "open_ports": [], "hardcoded_secrets": 0, "bare_excepts": 0, "auto_fix_results": []}
+
+    with open(PROD_AUDIT_LOG, encoding="utf-8") as f:
+        try:
+            data = json.load(f)
+        except (json.JSONDecodeError, Exception) as e:
+            logger.warning("Prod audit log JSON parse failed: %s", e)
+            return {
+                "findings": [], "open_ports": [], "hardcoded_secrets": 0,
+                "bare_excepts": 0, "auto_fix_results": [], "last_report": "",
+            }
+
+    if isinstance(data, list):
+        data = data[-1] if data else {}
+
+    last_report = data.get("timestamp", "")
+
+    for fg in data.get("findings", []):
+        sev = str(fg.get("severity", "low")).lower()
+        detail = fg.get("detail") or fg.get("title") or fg.get("description", "")
+        system = ""
+        # Extract system name from detail (e.g. "Proxmox Host:", "Schaltzentrale (VM 100):")
+        if ": " in detail:
+            system = detail.split(": ")[0].strip()
+
+        # Classify finding types for metrics
+        dl = detail.lower()
+        if any(kw in dl for kw in ["hardcoded", "secret", "credential", "api_key", "passwort"]):
+            hardcoded_secrets += 1
+        if any(kw in dl for kw in ["bare except", "silent fail", "except: pass"]):
+            bare_excepts += 1
+        if any(kw in dl for kw in ["port", "lauscht"]):
+            port_num = 0
+            port_match = re.search(r"(?:Port|port)\s*(\d+)", detail)
+            if port_match:
+                port_num = int(port_match[1])
+            open_ports.append({
+                "port": port_num,
+                "service": system or detail[:60],
+                "expected": False,
+            })
+
+        findings.append({
+            "severity": sev,
+            "title": f"{system}: {detail}" if system else detail[:100],
+            "description": fg.get("fix") or fg.get("detail", ""),
+            "auto_fixed": fg.get("auto_fixed", False),
+        })
+
+    for fix in data.get("auto_fix_results", []):
+        auto_fix_results.append(str(fix)[:120])
+
+    return {
+        "findings": findings,
+        "open_ports": open_ports,
+        "hardcoded_secrets": hardcoded_secrets,
+        "bare_excepts": bare_excepts,
+        "auto_fix_results": auto_fix_results,
+        "last_report": last_report,
+    }
 
 
 # ── Overview ────────────────────────────────────────────────────────────
