@@ -629,7 +629,7 @@ def _parse_code_quality() -> dict:
                         {
                             "port": finding.get("port", 0),
                             "service": finding.get("process", finding.get("detail", "")),
-                            "expected": False,
+                            "expected": finding.get("expected", False),
                         }
                     )
                 findings.append(
@@ -755,15 +755,17 @@ def _parse_code_quality_prod() -> dict:
             hardcoded_secrets += 1
         if any(kw in dl for kw in ["bare except", "silent fail", "except: pass"]):
             bare_excepts += 1
-        if any(kw in dl for kw in ["port", "lauscht"]):
+        # Only findings from _check_open_ports
+        is_port_finding = re.search(r"Port\s*\d+.*bekannter", detail) or re.search(r"Unerwarteter.*Port", detail)
+        if is_port_finding:
             port_num = 0
-            port_match = re.search(r"(?:Port|port)\s*(\d+)", detail)
+            port_match = re.search(r"(?:Port|port)[:\s]*(\d+)", detail)
             if port_match:
                 port_num = int(port_match[1])
             open_ports.append({
                 "port": port_num,
                 "service": system or detail[:60],
-                "expected": False,
+                "expected": fg.get("expected", False),
             })
 
         findings.append({
