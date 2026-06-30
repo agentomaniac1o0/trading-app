@@ -4,13 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_html/flutter_html.dart';
 import '../config/theme.dart';
 import '../providers/market_report_provider.dart';
-import '../providers/portfolio_review_provider.dart';
-import '../widgets/portfolio_review_card.dart';
-
-const _categoryPortfolioReview = 'portfolio-review';
 
 const _categories = [
-  _Category(_categoryPortfolioReview, 'Portfolio Review', 'assets/report_icons/boersenguru_discord.png', AppColors.gold),
   _Category('crashprophet', 'Crash Prophet', 'assets/report_icons/crashprophet_avatar.png', AppColors.negative),
   _Category('diamondhands', 'Diamond Hands', 'assets/report_icons/diamondhands_avatar.png', AppColors.blue),
   _Category('cryptoanalysis', 'Crypto Analysis', 'assets/report_icons/cryptonewsbot.png', AppColors.violet),
@@ -144,10 +139,6 @@ class _MarketReportsPageState extends ConsumerState<MarketReportsPage> {
   }
 
   Widget _buildReportContent() {
-    if (_selected == _categoryPortfolioReview) {
-      return _buildPortfolioReview();
-    }
-
     final reportAsync = ref.watch(marketReportProvider(_selected));
 
     return reportAsync.when(
@@ -250,87 +241,6 @@ child: Row(
             child: CircularProgressIndicator(strokeWidth: 2)),
       ),
       error: (_, __) => _emptyState(_selected),
-    );
-  }
-
-  Widget _buildPortfolioReview() {
-    final reviewAsync = ref.watch(portfolioReviewProvider);
-
-    return reviewAsync.when(
-      data: (review) {
-        if (review == null) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.auto_awesome, size: 48, color: AppColors.textSecondary),
-                const SizedBox(height: 12),
-                Text('Kein Portfolio Review verfügbar',
-                    style: TextStyle(color: AppColors.secondaryColor(context), fontSize: 16)),
-                const SizedBox(height: 8),
-                Text('Die Trading Crew hat noch keinen Portfolio-Report generiert.',
-                    style: TextStyle(color: AppColors.secondaryColor(context), fontSize: 12)),
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: () => refreshPortfolioReview(ref),
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('Erneut versuchen'),
-                ),
-              ],
-            ),
-          );
-        }
-        final dateDisplay = review.reportTime != null
-            ? '${review.reportDate} at ${review.reportTime}'
-            : review.reportDate;
-
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.auto_awesome, size: 16, color: AppColors.gold),
-                  const SizedBox(width: 8),
-Text('Portfolio-Asset Review',
-                       style: TextStyle(
-                         color: AppColors.textColor(context),
-                         fontSize: 17,
-                         fontWeight: FontWeight.w700,
-                       )),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.refresh, size: 18),
-                    onPressed: () => refreshPortfolioReview(ref),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: 4, bottom: 12),
-                child: Text(
-                  'Report: $dateDisplay',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ),
-              PortfolioReviewCard(review: review),
-            ],
-          ),
-        );
-      },
-      loading: () => const Center(
-        child: SizedBox(width: 24, height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2)),
-      ),
-      error: (_, __) => Center(
-        child: Text('Fehler beim Laden', style: TextStyle(color: AppColors.secondaryColor(context))),
-      ),
     );
   }
 

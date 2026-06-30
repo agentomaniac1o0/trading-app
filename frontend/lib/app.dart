@@ -2,15 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'config/theme.dart';
-import 'pages/portfolio_page.dart';
 import 'pages/market_reports_page.dart';
-import 'pages/trade_open_page.dart';
-import 'pages/trade_close_page.dart';
+import 'pages/crypto_arb_page.dart';
 import 'pages/settings_page.dart';
-import 'providers/live_portfolio_provider.dart';
-import 'providers/portfolio_provider.dart';
-import 'providers/trade_provider.dart';
-import 'providers/trader_provider.dart';
 
 final router = GoRouter(
   routes: [
@@ -22,31 +16,15 @@ final router = GoRouter(
           routes: [
             GoRoute(
               path: '/',
-              builder: (context, state) => const PortfolioPage(),
+              builder: (context, state) => const CryptoArbPage(),
             ),
           ],
         ),
         StatefulShellBranch(
           routes: [
             GoRoute(
-              path: '/market-reports',
+              path: '/reports',
               builder: (context, state) => const MarketReportsPage(),
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/trades',
-              builder: (context, state) => const TradeClosePage(),
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/trade/open',
-              builder: (context, state) => const TradeOpenPage(),
             ),
           ],
         ),
@@ -93,18 +71,10 @@ class HomeShell extends ConsumerWidget {
         selectedIndex: navigationShell.currentIndex,
         onDestinationSelected: (index) {
           navigationShell.goBranch(index);
-          if (index == 0) {
-            ref.invalidate(livePortfolioProvider);
-            ref.invalidate(portfolioProvider);
-            ref.invalidate(tradesProvider);
-            ref.invalidate(tradersProvider);
-          }
         },
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard), label: 'Portfolio'),
+          NavigationDestination(icon: Icon(Icons.currency_bitcoin), label: 'Crypto Arb'),
           NavigationDestination(icon: Icon(Icons.article_outlined), label: 'Reports'),
-          NavigationDestination(icon: Icon(Icons.list), label: 'Trades'),
-          NavigationDestination(icon: Icon(Icons.add_circle), label: 'New Trade'),
           NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),
         ],
       ),
