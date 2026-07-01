@@ -306,7 +306,7 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
                     const SizedBox(height: 10),
                     _infoRow('Spot Long', '${spotQty.toStringAsFixed(4)} $coin · \$${cost.toStringAsFixed(0)}'),
                     _infoRow('Perp Short', '${perpQty.toStringAsFixed(1)} $coin · Hedge ${hedgePct.toStringAsFixed(0)}%'),
-                     _infoRow('Einstandspreis', '\$${entry.toStringAsFixed(2)}'),
+                     _infoRow('Entry', '\$${entry.toStringAsFixed(2)}'),
                     const SizedBox(height: 8),
                     Row(
                       children: [
