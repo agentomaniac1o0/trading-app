@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 import logging
+import time as _time
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 
@@ -55,6 +56,35 @@ PROD_MONITORING_DIR = os.path.expanduser("~/agent-templates/monitoring/productio
 PROD_REPORTS_DIR = os.path.join(PROD_MONITORING_DIR, "reports")
 PROD_AUDIT_LOG = os.path.join(PROD_MONITORING_DIR, "security_audit_log.json")
 PROD_GRAPHIFY_DIR = os.path.join(PROD_MONITORING_DIR, "graphify-out")
+
+# ── Production-Center Health Check (via SSH von VM 100) ────────────────
+_PROD_HEALTH_CACHE: dict | None = None
+_PROD_HEALTH_CACHE_TS: float = 0
+_PROD_HEALTH_TTL = 300  # 5 Minuten
+
+
+def _fetch_prod_health_json() -> dict | None:
+    """Liest health_check.json von VM 100 via SSH (5-Min-Cache)."""
+    global _PROD_HEALTH_CACHE, _PROD_HEALTH_CACHE_TS
+    now = _time.monotonic()
+    if _PROD_HEALTH_CACHE is not None and (now - _PROD_HEALTH_CACHE_TS) < _PROD_HEALTH_TTL:
+        return _PROD_HEALTH_CACHE
+    try:
+        result = subprocess.run(
+            ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5",
+             "-i", os.path.expanduser("~/.ssh/id_ed25519_production"),
+             "production-center", "cat ~/monitoring/health_check.json"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            data = json.loads(result.stdout)
+            _PROD_HEALTH_CACHE = data
+            _PROD_HEALTH_CACHE_TS = now
+            return data
+        logger.debug("prod health SSH failed: rc=%s stderr=%s", result.returncode, result.stderr[:200])
+    except Exception as e:
+        logger.warning("prod health fetch failed: %s", e)
+    return None
 
 
 def _parse_targets(cfg_str: str) -> list[tuple[str, str]]:
@@ -956,6 +986,26 @@ async def get_live(location: str):
     import asyncio as _aio
 
     if location == "production-center":
+        health = _fetch_prod_health_json()
+        if health:
+            heartbeats = [
+                LiveHeartbeat(system=h.get("system", ""), status=h.get("status", "critical"))
+                for h in health.get("heartbeats", [])
+            ]
+            service_checks = [
+                LiveServiceCheck(
+                    service=s.get("service", ""),
+                    online=s.get("online", False),
+                    response_time_ms=s.get("response_time_ms", 0),
+                )
+                for s in health.get("service_checks", [])
+            ]
+            return MissioncontrolLive(
+                heartbeats=heartbeats,
+                service_checks=service_checks,
+                timestamp=health.get("timestamp", datetime.now(timezone.utc).isoformat()),
+            )
+        # Fallback: eigene Checks wenn health_check.json nicht verfügbar
         targets = _parse_targets(settings.live_targets_prod)
     else:
         targets = _parse_targets(settings.live_targets_home)
