@@ -166,8 +166,8 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
             const SizedBox(height: 6),
             Row(
               children: [
-                _kpi('Funding/Tag', '\$${_computeDailyEarnings(positionsAsync).toStringAsFixed(4)}', AppColors.gold),
-                _kpi('Funding/Monat', '\$${(_computeDailyEarnings(positionsAsync) * 30).toStringAsFixed(2)}', AppColors.positive),
+                _kpi('Funding/Tag', '\$${_computeDailyEarnings(posAsync).toStringAsFixed(4)}', AppColors.gold),
+                _kpi('Funding/Monat', '\$${(_computeDailyEarnings(posAsync) * 30).toStringAsFixed(2)}', AppColors.positive),
               ],
             ),
             if (todayPnl != 0) ...[
