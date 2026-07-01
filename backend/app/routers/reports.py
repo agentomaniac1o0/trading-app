@@ -27,6 +27,7 @@ MARKET_CATEGORIES = [
     "commodities",
     "real-estate",
     "trader-perspectives",
+    "crypto-arb-weekly",
 ]
 
 
