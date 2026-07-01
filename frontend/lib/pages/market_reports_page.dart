@@ -14,6 +14,7 @@ const _categories = [
   _Category('commodities', 'Commodities', 'assets/report_icons/CommoLilly_avatar.png', Color(0xFFcd853f)),
   _Category('real-estate', 'Real Estate', 'assets/report_icons/CottageScout_avatar.png', Color(0xFF2e8b57)),
   _Category('trader-perspectives', 'Trader Perspectives', 'assets/report_icons/boersenguru_discord.png', AppColors.gold),
+  _Category('crypto-arb-weekly', 'Crypto Arb Weekly', 'assets/report_icons/cryptonewsbot.png', AppColors.positive),
 ];
 
 class _Category {
