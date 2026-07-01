@@ -74,7 +74,7 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              _buildPortfolioKPIs(summaryAsync, portfolioAsync),
+              _buildPortfolioKPIs(summaryAsync, portfolioAsync, positionsAsync),
               const SizedBox(height: 16),
               _buildCoinBreakdown(portfolioAsync),
               const SizedBox(height: 16),
@@ -95,7 +95,8 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
   }
 
   Widget _buildPortfolioKPIs(AsyncValue<Map<String, dynamic>?> summaryAsync,
-      AsyncValue<Map<String, dynamic>?> portfolioAsync) {
+      AsyncValue<Map<String, dynamic>?> portfolioAsync,
+      AsyncValue<List<dynamic>> posAsync) {
     final portfolio = portfolioAsync.valueOrNull;
     final summary = summaryAsync.valueOrNull;
 
@@ -160,6 +161,13 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
                 _kpi('Arb Pos.', '$arbPositions', AppColors.gold),
                 _kpi('Total P&L', '\$${totalPnl.toStringAsFixed(2)}',
                     totalPnl >= 0 ? AppColors.positive : AppColors.negative),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                _kpi('Funding/Tag', '\$${_computeDailyEarnings(positionsAsync).toStringAsFixed(4)}', AppColors.gold),
+                _kpi('Funding/Monat', '\$${(_computeDailyEarnings(positionsAsync) * 30).toStringAsFixed(2)}', AppColors.positive),
               ],
             ),
             if (todayPnl != 0) ...[
@@ -271,7 +279,7 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
             final upnl = (p['unrealized_pnl'] ?? p['pnl'] ?? 0.0).toDouble();
             final currentPrice = (p['current_price'] ?? entry).toDouble();
             final openedAt = p['opened_at']?.toString() ?? '?';
-            final dailyEst = currentPrice * perpQty * rate;
+            final dailyEst = cost * rate * 3;  // 3 settlements/day
             final hedgePct = spotQty > 0 ? (perpQty / spotQty * 100) : 0;
 
             return Card(
@@ -522,6 +530,18 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
             )),
       ),
     );
+  }
+
+  double _computeDailyEarnings(AsyncValue<List<dynamic>> posAsync) {
+    double total = 0;
+    if (posAsync.valueOrNull != null) {
+      for (final p in posAsync.valueOrNull!) {
+        final cost = (p['cost'] ?? 0.0).toDouble();
+        final rate = (p['funding_rate_current'] ?? p['funding_rate_open'] ?? 0.0).toDouble();
+        total += cost * rate * 3;  // 3 settlements per day
+      }
+    }
+    return total;
   }
 
   Widget _buildSectionTitle(String title) {
