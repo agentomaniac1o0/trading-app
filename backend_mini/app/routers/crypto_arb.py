@@ -30,9 +30,25 @@ async def get_positions():
 
 @router.get("/positions/active")
 async def get_active_positions():
-    """Get only active (open) arb positions."""
+    """Get only active (open) arb positions, enriched with KuCoin actual unrealised P&L."""
     positions = _read_json(POSITIONS_FILE)
-    return [p for p in positions if p.get("status") == "open"]
+    active = [p for p in positions if p.get("status") == "open"]
+    
+    # Enrich with KuCoin per-coin unrealised P&L
+    funding_file = os.path.join(DATA_DIR, "funding_snapshot.json")
+    if os.path.exists(funding_file):
+        with open(funding_file) as f:
+            funding = json.load(f)
+        per_coin = funding.get("per_coin", {})
+        for p in active:
+            coin = p.get("coin", "")
+            if coin in per_coin:
+                p["kucoin_unrealised_pnl"] = per_coin[coin].get("upnl", 0)
+                p["kucoin_roe_pct"] = per_coin[coin].get("roe_pct", 0)
+                p["kucoin_entry"] = per_coin[coin].get("entry", p.get("entry_price", 0))
+                p["kucoin_mark"] = per_coin[coin].get("mark", p.get("current_price", 0))
+    
+    return active
 
 
 @router.get("/positions/closed")

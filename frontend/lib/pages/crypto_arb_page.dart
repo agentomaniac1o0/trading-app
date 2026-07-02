@@ -165,8 +165,8 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
               children: [
                 _kpi('Arb Invested', '\$${invested.toStringAsFixed(0)}', AppColors.blue),
                 _kpi('Arb Pos.', '$arbPositions', AppColors.gold),
-                _kpi('Total P&L', '\$${totalPnl.toStringAsFixed(2)}',
-                    totalPnl >= 0 ? AppColors.positive : AppColors.negative),
+                _kpi('Total P&L', '\$${kcTotalPnl.toStringAsFixed(2)}',
+                    kcTotalPnl >= 0 ? AppColors.positive : AppColors.negative),
               ],
             ),
             const SizedBox(height: 6),
@@ -182,33 +182,17 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
               const SizedBox(height: 6),
               Row(
                 children: [
-                  _kpi('KuCoin Total P&L', '\$${kcTotalPnl.toStringAsFixed(2)}',
-                      kcTotalPnl >= 0 ? AppColors.positive : AppColors.negative),
                   _kpi('Heute Realised', '\$${kcTodayRealised.toStringAsFixed(2)}',
                       kcTodayRealised >= 0 ? AppColors.positive : AppColors.negative),
+                  _kpi('Unrealised', '\$${kcUnrealisedPnl.toStringAsFixed(2)}',
+                      kcUnrealisedPnl >= 0 ? AppColors.positive : AppColors.negative),
                 ],
               ),
               const SizedBox(height: 4),
               Row(
                 children: [
-                  _kpi('Unrealised', '\$${kcUnrealisedPnl.toStringAsFixed(2)}',
-                      kcUnrealisedPnl >= 0 ? AppColors.positive : AppColors.negative),
-                  _kpi('Equity', '\$${accountEquity.toStringAsFixed(0)}', AppColors.blue),
-                ],
-              ),
-            ],
-            if (todayPnl != 0) ...[
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Text('Today: ',
-                      style: TextStyle(fontSize: 11, color: AppColors.secondaryColor(context))),
-                  Text('\$${todayPnl.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: todayPnl >= 0 ? AppColors.positive : AppColors.negative,
-                      )),
+                  _kpi('Accounting Equity', '\$${accountEquity.toStringAsFixed(0)}', AppColors.blue),
+                  _kpi('Margin', '\$${(portfolio?[\"futures_total\"] ?? 0.0).toDouble().toStringAsFixed(0)}', AppColors.gold),
                 ],
               ),
             ],
@@ -299,12 +283,17 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
             final coin = p['coin'] ?? '?';
             final cost = (p['cost'] ?? 0.0).toDouble();
             final apr = (p['funding_apr_open'] ?? p['funding_apr_current'] ?? 0.0).toDouble();
-            final rate = (p['funding_rate_open'] ?? 0.0).toDouble();
+            final rate = (p['funding_rate_current'] ?? p['funding_rate_open'] ?? 0.0).toDouble();
             final spotQty = (p['spot_quantity'] ?? 0.0).toDouble();
             final perpQty = (p['perp_quantity'] ?? 0.0).toDouble();
             final entry = (p['entry_price'] ?? 0.0).toDouble();
-            final upnl = (p['unrealized_pnl'] ?? p['pnl'] ?? 0.0).toDouble();
-            final currentPrice = (p['current_price'] ?? entry).toDouble();
+            // Use KuCoin actual unrealised P&L (includes funding fees)
+            final kcUpnl = (p['kucoin_unrealised_pnl'] ?? p['unrealized_pnl'] ?? 0.0).toDouble();
+            final kcRoe = (p['kucoin_roe_pct'] ?? 0.0).toDouble();
+            final kcMark = (p['kucoin_mark'] ?? p['current_price'] ?? entry).toDouble();
+            final kcEntry = (p['kucoin_entry'] ?? entry).toDouble();
+            final upnl = kcUpnl;
+            final currentPrice = kcMark;
             final openedAt = p['opened_at']?.toString() ?? '?';
             final dailyEst = cost * rate * 3;  // 3 settlements/day
             final hedgePct = spotQty > 0 ? (perpQty / spotQty * 100) : 0;
@@ -333,7 +322,13 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
                     const SizedBox(height: 10),
                     _infoRow('Spot Long', '${spotQty.toStringAsFixed(4)} $coin · \$${cost.toStringAsFixed(0)}'),
                     _infoRow('Perp Short', '${perpQty.toStringAsFixed(1)} $coin · Hedge ${hedgePct.toStringAsFixed(0)}%'),
-                     _infoRow('Entry', '\$${entry.toStringAsFixed(2)}'),
+                     _infoRow('Entry/Mark', '\$${kcEntry.toStringAsFixed(2)} / \$${kcMark.toStringAsFixed(2)}'),
+                    const SizedBox(height: 3),
+                    Text('KuCoin P&L: \$${upnl.toStringAsFixed(2)} (ROE: ${kcRoe.toStringAsFixed(1)}%)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: upnl >= 0 ? AppColors.positive : AppColors.negative,
+                        )),
                     const SizedBox(height: 8),
                     Row(
                       children: [
