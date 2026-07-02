@@ -192,7 +192,7 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
               Row(
                 children: [
                   _kpi('Accounting Equity', '\$${accountEquity.toStringAsFixed(0)}', AppColors.blue),
-                  _kpi('Margin', '\$${(portfolio?[\"futures_total\"] ?? 0.0).toDouble().toStringAsFixed(0)}', AppColors.gold),
+                  _kpi('Margin', '\$${(portfolio?["futures_total"] ?? 0.0).toDouble().toStringAsFixed(0)}', AppColors.gold),
                 ],
               ),
             ],
