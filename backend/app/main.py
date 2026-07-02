@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import async_session, init_db
-from app.routers import judgments, missioncontrol, portfolio, prices, reports, trades, traders
+from app.routers import crypto_arb, judgments, missioncontrol, portfolio, prices, reports, trades, traders
 from app.services.evaluator import sync_judgments_from_report
 
 logger = logging.getLogger(__name__)
@@ -48,6 +48,7 @@ app.include_router(traders.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 app.include_router(missioncontrol.router, prefix="/api")
 app.include_router(judgments.router, prefix="/api")
+app.include_router(crypto_arb.router, prefix="/api")
 
 
 @app.on_event("startup")
