@@ -58,22 +58,24 @@ async def get_summary():
     closed = [p for p in positions if p.get("status") == "closed"]
 
     total_invested = sum(p.get("cost", 0) for p in active)
-    total_pnl = sum(p.get("pnl", 0) for p in closed)
     unrealized_pnl = sum(p.get("unrealized_pnl", 0) for p in active)
 
-    today_closed = [
-        p for p in closed
-        if p.get("closed_at", "").startswith(datetime.now().strftime("%Y-%m-%d"))
-    ]
-    today_pnl = sum(p.get("pnl", 0) for p in today_closed)
+    # Realized P&L from history.json (net_pnl field)
+    close_entries = [h for h in history if h.get("type") == "close"]
+    total_realized_pnl = sum(h.get("net_pnl", 0) for h in close_entries)
+
+    # Today's realized P&L
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    today_closes = [h for h in close_entries if h.get("timestamp", "").startswith(today_str)]
+    today_realized_pnl = sum(h.get("net_pnl", 0) for h in today_closes)
 
     return {
         "active_count": len(active),
         "closed_count": len(closed),
         "total_invested": round(total_invested, 2),
-        "total_realized_pnl": round(total_pnl, 4),
+        "total_realized_pnl": round(total_realized_pnl, 4),
         "unrealized_pnl": round(unrealized_pnl, 4),
-        "today_pnl": round(today_pnl, 4),
+        "today_pnl": round(today_realized_pnl, 4),
         "updated_at": datetime.now().isoformat(),
     }
 
