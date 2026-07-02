@@ -112,6 +112,12 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
     final todayPnl = (summary?['today_pnl'] ?? 0.0).toDouble();
     final totalPnl = realizedPnl + unrealizedPnl;
 
+    // KuCoin actual P&L (includes funding fees)
+    final kcTotalPnl = (summary?['kucoin_total_pnl'] ?? 0.0).toDouble();
+    final kcUnrealisedPnl = (summary?['kucoin_unrealised_pnl'] ?? 0.0).toDouble();
+    final kcTodayRealised = (summary?['kucoin_today_realised'] ?? 0.0).toDouble();
+    final accountEquity = (summary?['account_equity'] ?? 0.0).toDouble();
+
     if (portfolioAsync.isLoading && summaryAsync.isLoading) {
       return const Center(child: Padding(
         padding: EdgeInsets.all(32),
@@ -170,6 +176,27 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
                 _kpi('Funding/Monat', '\$${(_computeDailyEarnings(posAsync) * 30).toStringAsFixed(2)}', AppColors.positive),
               ],
             ),
+            if (kcTotalPnl != 0) ...[
+              const SizedBox(height: 6),
+              const Divider(height: 1),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  _kpi('KuCoin Total P&L', '\$${kcTotalPnl.toStringAsFixed(2)}',
+                      kcTotalPnl >= 0 ? AppColors.positive : AppColors.negative),
+                  _kpi('Heute Realised', '\$${kcTodayRealised.toStringAsFixed(2)}',
+                      kcTodayRealised >= 0 ? AppColors.positive : AppColors.negative),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  _kpi('Unrealised', '\$${kcUnrealisedPnl.toStringAsFixed(2)}',
+                      kcUnrealisedPnl >= 0 ? AppColors.positive : AppColors.negative),
+                  _kpi('Equity', '\$${accountEquity.toStringAsFixed(0)}', AppColors.blue),
+                ],
+              ),
+            ],
             if (todayPnl != 0) ...[
               const SizedBox(height: 6),
               Row(

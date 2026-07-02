@@ -69,6 +69,12 @@ async def get_summary():
     today_closes = [h for h in close_entries if h.get("timestamp", "").startswith(today_str)]
     today_realized_pnl = sum(h.get("net_pnl", 0) for h in today_closes)
 
+    # KuCoin actuals from funding snapshot
+    funding = {}
+    if os.path.exists(os.path.join(DATA_DIR, "funding_snapshot.json")):
+        with open(os.path.join(DATA_DIR, "funding_snapshot.json")) as f:
+            funding = json.load(f)
+
     return {
         "active_count": len(active),
         "closed_count": len(closed),
@@ -76,6 +82,10 @@ async def get_summary():
         "total_realized_pnl": round(total_realized_pnl, 4),
         "unrealized_pnl": round(unrealized_pnl, 4),
         "today_pnl": round(today_realized_pnl, 4),
+        "kucoin_unrealised_pnl": funding.get("unrealised_pnl_total", 0),
+        "kucoin_today_realised": funding.get("today_realised_pnl", 0),
+        "kucoin_total_pnl": funding.get("total_including_unrealised", 0),
+        "account_equity": funding.get("account_equity", 0),
         "updated_at": datetime.now().isoformat(),
     }
 
@@ -142,4 +152,34 @@ async def get_portfolio():
     if not os.path.exists(PORTFOLIO_FILE):
         return {"total_value": 0, "coins": [], "spot_total": 0, "futures_total": 0, "arb_positions": 0}
     with open(PORTFOLIO_FILE) as f:
+        return json.load(f)
+
+
+# ─── Funding P&L (from KuCoin, tracked by funding_tracker.py) ───
+
+FUNDING_FILE = os.path.join(DATA_DIR, "funding_snapshot.json")
+
+
+@router.post("/sync/funding")
+async def sync_funding(data: dict):
+    """Accept funding snapshot from crypto-arb engine on VM 101."""
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(FUNDING_FILE, "w") as f:
+        json.dump(data, f, indent=2, default=str)
+    return {"status": "ok"}
+
+
+@router.get("/funding")
+async def get_funding():
+    """Get latest KuCoin P&L snapshot (realised + unrealised incl. funding fees)."""
+    if not os.path.exists(FUNDING_FILE):
+        return {
+            "account_equity": 0,
+            "unrealised_pnl_total": 0,
+            "today_realised_pnl": 0,
+            "total_realised_pnl": 0,
+            "total_including_unrealised": 0,
+            "per_coin": {},
+        }
+    with open(FUNDING_FILE) as f:
         return json.load(f)
