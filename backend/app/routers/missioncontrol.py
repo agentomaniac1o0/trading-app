@@ -685,10 +685,20 @@ def _parse_code_quality() -> dict:
                 ts = entry.get("timestamp", "")
                 summary = entry.get("summary", "")
                 files = entry.get("files", [])
-                # Skip test entries
+                # Skip test entries and entries older than 30 days
                 if "Test-Eintrag" in summary:
                     continue
-                severity = "high" if entry.get("critical", 0) > 0 else "medium"
+                if ts:
+                    try:
+                        entry_date = datetime.fromisoformat(ts)
+                        if (datetime.now() - entry_date).days > 30:
+                            continue
+                    except (ValueError, TypeError):
+                        pass
+                # Skip entries with no findings (all issues resolved)
+                if entry.get("critical", 0) == 0 and entry.get("high", 0) == 0 and entry.get("medium", 0) == 0 and entry.get("low", 0) == 0:
+                    continue
+                severity = "high" if entry.get("critical", 0) > 0 or entry.get("high", 0) > 0 else "medium"
                 findings.append(
                     {
                         "severity": severity,
