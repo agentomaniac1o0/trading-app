@@ -1106,7 +1106,7 @@ def _report_service_status() -> list[LiveServiceCheck]:
                 service=s.get("name", ""),
                 online=s.get("online", True),
                 port=s.get("port", 0),
-                response_time_ms=0,
+                response_time_ms=-1,  # -1 = systemd-check, kein TCP
             )
             for s in services
         ]
