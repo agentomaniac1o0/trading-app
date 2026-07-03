@@ -60,6 +60,20 @@ final cryptoArbPortfolioProvider = FutureProvider<Map<String, dynamic>?>(
   },
 );
 
+final cryptoArbActivityProvider = FutureProvider<List<dynamic>>(
+  (ref) async {
+    ref.watch(_cryptoArbRefreshKey);
+    final client = ref.watch(apiClientProvider);
+    try {
+      final response = await client.get('/api/crypto-arb/activity?limit=100');
+      return response.data as List<dynamic>;
+    } catch (e) {
+      debugPrint('Crypto-Arb activity fetch failed: $e');
+      return [];
+    }
+  },
+);
+
 void refreshCryptoArb(WidgetRef ref) {
   ref.read(_cryptoArbRefreshKey.notifier).state++;
 }

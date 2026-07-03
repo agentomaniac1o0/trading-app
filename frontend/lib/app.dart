@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'config/theme.dart';
 import 'pages/market_reports_page.dart';
 import 'pages/crypto_arb_page.dart';
+import 'pages/activity_page.dart';
 import 'pages/settings_page.dart';
 
 final router = GoRouter(
@@ -17,6 +18,14 @@ final router = GoRouter(
             GoRoute(
               path: '/',
               builder: (context, state) => const CryptoArbPage(),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/activity',
+              builder: (context, state) => const ActivityPage(),
             ),
           ],
         ),
@@ -74,6 +83,7 @@ class HomeShell extends ConsumerWidget {
         },
         destinations: const [
           NavigationDestination(icon: Icon(Icons.currency_bitcoin), label: 'Crypto Arb'),
+          NavigationDestination(icon: Icon(Icons.history), label: 'Aktivitaet'),
           NavigationDestination(icon: Icon(Icons.article_outlined), label: 'Reports'),
           NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),
         ],

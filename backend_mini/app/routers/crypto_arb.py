@@ -200,3 +200,24 @@ async def get_funding():
         }
     with open(FUNDING_FILE) as f:
         return json.load(f)
+
+
+# ─── Activity Log (engine transparency) ───
+
+ACTIVITY_FILE = os.path.join(DATA_DIR, "activity.jsonl")
+
+
+@router.get("/activity")
+async def get_activity(limit: int = 100):
+    """Get recent engine activity events."""
+    if not os.path.exists(ACTIVITY_FILE):
+        return []
+    with open(ACTIVITY_FILE) as f:
+        lines = f.readlines()
+    events = []
+    for line in lines[-limit:]:
+        try:
+            events.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return list(reversed(events))
