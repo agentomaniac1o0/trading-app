@@ -688,6 +688,8 @@ def _parse_code_quality() -> dict:
                 # Skip test entries and entries older than 30 days
                 if "Test-Eintrag" in summary:
                     continue
+                if entry.get("fixed", False):
+                    continue
                 if ts:
                     try:
                         entry_date = datetime.fromisoformat(ts)
@@ -1051,7 +1053,17 @@ def _live_service_checks(location: str) -> list[LiveServiceCheck]:
     if location == "home-lab":
         internal = _report_service_status()
         for svc in internal:
-            if not any(r.service == svc.service for r in results):
+            # Check if this service is already covered by a TCP check
+            # (substring match to handle naming differences like "SSH" vs "SSH (ai-agents)")
+            already_covered = any(
+                r.service == svc.service
+                or r.service.lower().startswith(svc.service.lower() + " ")
+                or svc.service.lower().startswith(r.service.lower() + " ")
+                or svc.service.lower() in r.service.lower()
+                or r.service.lower() in svc.service.lower()
+                for r in results
+            )
+            if not already_covered:
                 results.append(svc)
 
     if location == "production-center":

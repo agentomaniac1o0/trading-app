@@ -13,7 +13,8 @@ class Settings(BaseSettings):
     api_key: str = ""
     live_targets_home: str = (
         "pve-1:100.119.174.53,nextcloud:100.75.220.89,ai-agents:127.0.0.1,"
-        "ghost-blog:192.168.0.172,image-gen:100.111.44.63"
+        "ghost-blog:192.168.0.172,image-gen:100.111.44.63,"
+        "trading-app:100.112.199.58,hermes:192.168.0.144"
     )
     live_targets_prod: str = (
         "proxmox-host:192.168.0.20,schaltzentrale:100.126.181.63,pbs:192.168.0.80,"
@@ -28,7 +29,9 @@ class Settings(BaseSettings):
         "Flatpak Repo:100.103.32.107:8081,"
         "SSH (ai-agents):100.103.32.107:22,"
         "ComfyUI (LXC 103):100.111.44.63:8188,"
-        "Hermes SSH:192.168.0.144:22"
+        "SSH (LXC 104):100.112.199.58:22,"
+        "Trading API (LXC 104):100.112.199.58:8000,"
+        "SSH (Hermes):192.168.0.144:22"
     )
     live_tcp_prod: str = (
         "SSH (Schaltzentrale):100.126.181.63:22,"
@@ -44,30 +47,28 @@ class Settings(BaseSettings):
         "Watchdog SSH:192.168.0.149:22"
     )
     known_services_str: str = (
-        "Uvicorn (Backend):8000:VM 101 – AI Agents,"
-        "Flatpak-Repo:8081:VM 101 – AI Agents,"
-        "Mission Control:8502:VM 101 – AI Agents,"
-        "Trading Dashboard:8501:VM 101 – AI Agents,"
-        "MCP-Server:3000:VM 101 – AI Agents,"
-        "CrewAI-Scheduler:0:VM 101 – AI Agents,"
-        "Ghost Blog:80:LXC 102 – Ghost Blog,"
+        "Trading Backend (API):8000:VM 101 – AI Agents,"
+        "Flatpak OSTree Repo:8081:VM 101 – AI Agents,"
+        "Ghost Blog:2368:LXC 102 – Ghost Blog,"
+        "Nginx:80:LXC 102 – Ghost Blog,"
         "ComfyUI:8188:LXC 103 – Image-Gen,"
+        "Docker:0:LXC 103 – Image-Gen,"
+        "Trading API:8000:LXC 104 – Trading App,"
+        "Hermes Gateway:0:LXC 105 – Hermes,"
+        "Apache:443:VM 100 – Nextcloud,"
         "MariaDB:3306:VM 100 – Nextcloud,"
         "Redis:6379:VM 100 – Nextcloud,"
-        "Hermes Gateway:0:LXC 105 – Hermes,"
+        "CronMaster Dashboard:3000:LXC 102 – Ghost Blog,"
         "Proxmox Web UI:8006:Proxmox Host,"
         "Proxmox SSH:22:Proxmox Host,"
-        "CronMaster:3000:Proxmox Host,"
         "PBS Web UI:8007:PBS (CT 101),"
         "PBS SSH:22:PBS (CT 101),"
         "Website HTTP:80:LXC 102 – Website,"
         "Website SSH:22:LXC 102 – Website,"
         "n8n Web UI:5678:LXC 110 – n8n,"
         "n8n SSH:22:LXC 110 – n8n,"
-        "Watchdog:22:RPi 4 – Watchdog,"
-        "Schaltzentrale SSH:22:VM 100 – Schaltzentrale,"
-        "Tailscale:0:VM 100 – Schaltzentrale,"
-        "CrewAI (Monitoring):0:VM 100 – Schaltzentrale"
+        "Watchdog SSH:22:RPi 4 – Watchdog,"
+        "Schaltzentrale SSH:22:VM 100 – Schaltzentrale"
     )
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
