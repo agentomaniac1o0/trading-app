@@ -99,6 +99,7 @@ async def get_summary():
         "today_pnl": round(today_realized_pnl, 4),
         "kucoin_unrealised_pnl": funding.get("unrealised_pnl_total", 0),
         "kucoin_today_realised": funding.get("today_realised_pnl", 0),
+        "kucoin_total_realised": funding.get("total_realised_pnl", total_realized_pnl),
         "kucoin_total_pnl": funding.get("total_including_unrealised", 0),
         "account_equity": funding.get("account_equity", 0),
         "updated_at": datetime.now().isoformat(),

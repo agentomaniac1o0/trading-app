@@ -107,15 +107,13 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
     final arbPositions = portfolio?['arb_positions'] ?? 0;
 
     final invested = (summary?['total_invested'] ?? 0.0).toDouble();
-    final realizedPnl = (summary?['total_realized_pnl'] ?? 0.0).toDouble();
     final unrealizedPnl = (summary?['unrealized_pnl'] ?? 0.0).toDouble();
-    final todayPnl = (summary?['today_pnl'] ?? 0.0).toDouble();
-    final totalPnl = realizedPnl + unrealizedPnl;
 
     // KuCoin actual P&L (includes funding fees)
     final kcTotalPnl = (summary?['kucoin_total_pnl'] ?? 0.0).toDouble();
     final kcUnrealisedPnl = (summary?['kucoin_unrealised_pnl'] ?? 0.0).toDouble();
     final kcTodayRealised = (summary?['kucoin_today_realised'] ?? 0.0).toDouble();
+    final kcTotalRealised = (summary?['kucoin_total_realised'] ?? summary?['total_realized_pnl'] ?? 0.0).toDouble();
     final accountEquity = (summary?['account_equity'] ?? 0.0).toDouble();
 
     if (portfolioAsync.isLoading && summaryAsync.isLoading) {
@@ -163,39 +161,72 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
             const Divider(height: 20),
             Row(
               children: [
-                _kpi('Arb Invested', '\$${invested.toStringAsFixed(0)}', AppColors.blue),
-                _kpi('Arb Pos.', '$arbPositions', AppColors.gold),
-                _kpi('Total P&L', '\$${kcTotalPnl.toStringAsFixed(2)}',
-                    kcTotalPnl >= 0 ? AppColors.positive : AppColors.negative),
+                _kpi('Arb Investiert', '\$${invested.toStringAsFixed(0)}', AppColors.blue,
+                    help: 'In Strategie gebundenes Kapital'),
+                _kpi('Arb Positionen', '$arbPositions', AppColors.gold,
+                    help: 'Aktive Delta-Neutrale Paare'),
+                _kpi('Realisierter Gewinn', '\$${kcTotalRealised.toStringAsFixed(2)}',
+                    kcTotalRealised >= 0 ? AppColors.positive : AppColors.negative,
+                    help: 'Tatsaechlich verdient (geschlossene Trades + Funding)'),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _kpi('Offene P&L', '\$${kcUnrealisedPnl.toStringAsFixed(2)}',
+                    kcUnrealisedPnl >= 0 ? AppColors.positive : AppColors.negative,
+                    help: 'Unrealisierte Kursaenderung (wird durch Spot ausgeglichen)'),
+                _kpi('Gesamt P&L', '\$${kcTotalPnl.toStringAsFixed(2)}',
+                    kcTotalPnl >= 0 ? AppColors.positive : AppColors.negative,
+                    help: 'Wenn du jetzt alles schliessen wuerdest'),
               ],
             ),
             const SizedBox(height: 6),
             Row(
               children: [
-                _kpi('Funding/Tag', '\$${_computeDailyEarnings(posAsync).toStringAsFixed(4)}', AppColors.gold),
-                _kpi('Funding/Monat', '\$${(_computeDailyEarnings(posAsync) * 30).toStringAsFixed(2)}', AppColors.positive),
+                _kpi('Ertrag/Tag', '\$${_computeDailyEarnings(posAsync).toStringAsFixed(4)}', AppColors.gold,
+                    help: 'Erwartete Funding-Zahlungen pro Tag'),
+                _kpi('Ertrag/Monat', '\$${(_computeDailyEarnings(posAsync) * 30).toStringAsFixed(2)}', AppColors.positive,
+                    help: 'Erwartete Funding-Zahlungen pro Monat'),
               ],
             ),
-            if (kcTotalPnl != 0) ...[
-              const SizedBox(height: 6),
-              const Divider(height: 1),
-              const SizedBox(height: 6),
-              Row(
+            const SizedBox(height: 10),
+            _sectionDivider(),
+            Row(
+              children: [
+                _kpi('Heute verdient', '\$${kcTodayRealised.toStringAsFixed(2)}',
+                    kcTodayRealised >= 0 ? AppColors.positive : AppColors.negative,
+                    help: 'Realisierte Gewinne/Verluste heute'),
+                _kpi('Futures-Konto', '\$${accountEquity.toStringAsFixed(0)}', AppColors.blue,
+                    help: 'Guthaben auf dem Futures-Konto'),
+                _kpi('Margin', '\$${(portfolio?["futures_total"] ?? 0.0).toDouble().toStringAsFixed(0)}', AppColors.gold,
+                    help: 'Davon als Sicherheit hinterlegt'),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.blue.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.blue.withOpacity(0.2)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _kpi('Heute Realised', '\$${kcTodayRealised.toStringAsFixed(2)}',
-                      kcTodayRealised >= 0 ? AppColors.positive : AppColors.negative),
-                  _kpi('Unrealised', '\$${kcUnrealisedPnl.toStringAsFixed(2)}',
-                      kcUnrealisedPnl >= 0 ? AppColors.positive : AppColors.negative),
+                  Icon(Icons.info_outline, size: 14, color: AppColors.blue.withOpacity(0.7)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Delta-Neutrale Strategie: Jede Position besteht aus Spot-Kauf + Futures-Verkauf. '
+                      'Kursverluste auf der einen Seite werden durch Gewinne auf der anderen ausgeglichen. '
+                      'Der Ertrag kommt aus den Funding-Rate-Zahlungen.',
+                      style: TextStyle(fontSize: 10, color: AppColors.blue.withOpacity(0.8), height: 1.3),
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  _kpi('Accounting Equity', '\$${accountEquity.toStringAsFixed(0)}', AppColors.blue),
-                  _kpi('Margin', '\$${(portfolio?["futures_total"] ?? 0.0).toDouble().toStringAsFixed(0)}', AppColors.gold),
-                ],
-              ),
-            ],
+            ),
           ],
         ),
       ),
@@ -292,11 +323,13 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
             final kcRoe = (p['kucoin_roe_pct'] ?? 0.0).toDouble();
             final kcMark = (p['kucoin_mark'] ?? p['current_price'] ?? entry).toDouble();
             final kcEntry = (p['kucoin_entry'] ?? entry).toDouble();
-            final upnl = kcUpnl;
             final currentPrice = kcMark;
             final openedAt = p['opened_at']?.toString() ?? '?';
             final dailyEst = cost * rate * 3;  // 3 settlements/day
             final hedgePct = spotQty > 0 ? (perpQty / spotQty * 100) : 0;
+            // Delta-neutral: spot gain offsets perp loss
+            final spotGain = spotQty * (currentPrice - entry);
+            final combinedPnl = kcUpnl + spotGain;
 
             return Card(
               margin: const EdgeInsets.only(bottom: 8),
@@ -315,20 +348,52 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
                               fontWeight: FontWeight.w700,
                               color: AppColors.textColor(context),
                             )),
+                        const SizedBox(width: 8),
+                        _badge('Delta-Neutral', AppColors.blue),
                         const Spacer(),
-                        _pnlChip(upnl),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            _pnlChip(kcUpnl),
+                            const SizedBox(height: 2),
+                            Text('Netto: \$${combinedPnl.toStringAsFixed(4)}',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: combinedPnl >= 0 ? AppColors.positive : AppColors.negative,
+                                )),
+                          ],
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
                     _infoRow('Spot Long', '${spotQty.toStringAsFixed(4)} $coin · \$${cost.toStringAsFixed(0)}'),
                     _infoRow('Perp Short', '${perpQty.toStringAsFixed(1)} $coin · Hedge ${hedgePct.toStringAsFixed(0)}%'),
-                     _infoRow('Entry/Mark', '\$${kcEntry.toStringAsFixed(2)} / \$${kcMark.toStringAsFixed(2)}'),
-                    const SizedBox(height: 3),
-                    Text('KuCoin P&L: \$${upnl.toStringAsFixed(2)} (ROE: ${kcRoe.toStringAsFixed(1)}%)',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: upnl >= 0 ? AppColors.positive : AppColors.negative,
-                        )),
+                    _infoRow('Entry/Mark', '\$${kcEntry.toStringAsFixed(4)} / \$${kcMark.toStringAsFixed(4)}'),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        _infoCol('Perp P&L', '\$${kcUpnl.toStringAsFixed(4)}',
+                            kcUpnl >= 0 ? AppColors.positive : AppColors.negative),
+                        const SizedBox(width: 12),
+                        _infoCol('Spot Gain', '+\$${spotGain.toStringAsFixed(4)}', AppColors.positive),
+                        const SizedBox(width: 12),
+                        _infoCol('Netto', '\$${combinedPnl.toStringAsFixed(4)}',
+                            combinedPnl >= 0 ? AppColors.positive : AppColors.negative),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.blue.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Verlust Futures wird durch Spot-Gewinn ausgeglichen. '
+                        'Der Ertrag kommt von den Funding-Zahlungen (APR ${apr.toStringAsFixed(1)}%).',
+                        style: TextStyle(fontSize: 10, color: AppColors.blue.withOpacity(0.7), height: 1.3),
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -340,15 +405,15 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
                       ],
                     ),
                     if (currentPrice != entry) ...[
-                      const SizedBox(height: 6),
-                      Text('Current: \$${currentPrice.toStringAsFixed(2)}  Δ ${((currentPrice - entry) / entry * 100).toStringAsFixed(2)}%',
+                      const SizedBox(height: 4),
+                      Text('\u0394 Kurs: ${((currentPrice - entry) / entry * 100).toStringAsFixed(2)}%',
                           style: TextStyle(
                             fontSize: 11,
                             color: currentPrice >= entry ? AppColors.positive : AppColors.negative,
                           )),
                     ],
                     const SizedBox(height: 4),
-                    Text(openedAt.length > 16 ? 'Opened: ${openedAt.substring(0, 16).replaceAll('T', ' ')}' : openedAt,
+                    Text(openedAt.length > 16 ? 'Eroeffnet: ${openedAt.substring(0, 16).replaceAll('T', ' ')}' : openedAt,
                         style: TextStyle(fontSize: 10, color: AppColors.secondaryColor(context))),
                   ],
                 ),
@@ -449,7 +514,7 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
 
   // --- Helpers ---
 
-  Widget _kpi(String label, String value, Color color) {
+  Widget _kpi(String label, String value, Color color, {String? help}) {
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -458,9 +523,21 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
               style: TextStyle(fontSize: 10, color: AppColors.secondaryColor(context))),
           const SizedBox(height: 2),
           Text(value,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color)),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color)),
+          if (help != null) ...[
+            const SizedBox(height: 1),
+            Text(help,
+                style: TextStyle(fontSize: 9, color: AppColors.secondaryColor(context).withOpacity(0.6))),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _sectionDivider() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Divider(height: 1, color: AppColors.secondaryColor(context).withOpacity(0.15)),
     );
   }
 
@@ -480,6 +557,18 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _infoCol(String label, String value, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: TextStyle(fontSize: 9, color: AppColors.secondaryColor(context))),
+        Text(value,
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+      ],
     );
   }
 
