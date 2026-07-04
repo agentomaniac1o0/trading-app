@@ -313,10 +313,12 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
           children: positions.map<Widget>((p) {
             final coin = p['coin'] ?? '?';
             final cost = (p['cost'] ?? 0.0).toDouble();
-            final apr = (p['funding_apr_open'] ?? p['funding_apr_current'] ?? 0.0).toDouble();
+            final currentApr = (p['funding_apr_current'] ?? p['funding_apr_open'] ?? 0.0).toDouble();
+            final openApr = (p['funding_apr_open'] ?? 0.0).toDouble();
             final rate = (p['funding_rate_current'] ?? p['funding_rate_open'] ?? 0.0).toDouble();
             final spotQty = (p['spot_quantity'] ?? 0.0).toDouble();
             final perpQty = (p['perp_quantity'] ?? 0.0).toDouble();
+            final contractSize = (p['contract_size'] ?? 1.0).toDouble();
             final entry = (p['entry_price'] ?? 0.0).toDouble();
             // Use KuCoin actual unrealised P&L (includes funding fees)
             final kcUpnl = (p['kucoin_unrealised_pnl'] ?? p['unrealized_pnl'] ?? 0.0).toDouble();
@@ -326,7 +328,8 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
             final currentPrice = kcMark;
             final openedAt = p['opened_at']?.toString() ?? '?';
             final dailyEst = cost * rate * 3;  // 3 settlements/day
-            final hedgePct = spotQty > 0 ? (perpQty / spotQty * 100) : 0;
+            final perpCoinEquivalent = perpQty * contractSize;
+            final hedgePct = spotQty > 0 ? (perpCoinEquivalent / spotQty * 100) : 0;
             // Delta-neutral: spot gain offsets perp loss
             final spotGain = spotQty * (currentPrice - entry);
             final combinedPnl = kcUpnl + spotGain;
@@ -390,15 +393,19 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
                       ),
                       child: Text(
                         'Verlust Futures wird durch Spot-Gewinn ausgeglichen. '
-                        'Der Ertrag kommt von den Funding-Zahlungen (APR ${apr.toStringAsFixed(1)}%).',
+                        'Der Ertrag kommt von den Funding-Zahlungen (aktuell ${currentApr.toStringAsFixed(1)}% APR).',
                         style: TextStyle(fontSize: 10, color: AppColors.blue.withOpacity(0.7), height: 1.3),
                       ),
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        _chip('APR ${apr.toStringAsFixed(1)}%', AppColors.positive),
+                        _chip('APR ${currentApr.toStringAsFixed(1)}%', currentApr >= 10 ? AppColors.positive : AppColors.gold),
                         const SizedBox(width: 6),
+                        if (openApr != currentApr) ...[
+                          _chip('Open ${openApr.toStringAsFixed(1)}%', AppColors.secondaryColor(context)),
+                          const SizedBox(width: 6),
+                        ],
                         _chip('≈\$${dailyEst.toStringAsFixed(4)}/tag', AppColors.gold),
                         const SizedBox(width: 6),
                         _chip('Rate ${(rate * 100).toStringAsFixed(4)}%', AppColors.blue),
@@ -649,7 +656,7 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
       for (final p in posAsync.valueOrNull!) {
         final cost = (p['cost'] ?? 0.0).toDouble();
         final rate = (p['funding_rate_current'] ?? p['funding_rate_open'] ?? 0.0).toDouble();
-        total += cost * rate * 3;  // 3 settlements per day
+        total += cost * rate * 3;
       }
     }
     return total;

@@ -23,3 +23,7 @@ modules:
     sources:
       - type: dir
         path: ../frontend/build/linux/x64/release/bundle
+      - type: file
+        path: app.trading.TradingApp.desktop
+      - type: file
+        path: icon.png
