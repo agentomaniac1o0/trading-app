@@ -113,6 +113,7 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
     final kcTotalPnl = (summary?['kucoin_total_pnl'] ?? 0.0).toDouble();
     final kcUnrealisedPnl = (summary?['kucoin_unrealised_pnl'] ?? 0.0).toDouble();
     final kcTodayRealised = (summary?['kucoin_today_realised'] ?? 0.0).toDouble();
+    final ourTotalRealised = (summary?['total_realized_pnl'] ?? 0.0).toDouble();
     final kcTotalRealised = (summary?['kucoin_total_realised'] ?? summary?['total_realized_pnl'] ?? 0.0).toDouble();
     final accountEquity = (summary?['account_equity'] ?? 0.0).toDouble();
 
@@ -165,9 +166,9 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
                     help: 'In Strategie gebundenes Kapital'),
                 _kpi('Arb Positionen', '$arbPositions', AppColors.gold,
                     help: 'Aktive Delta-Neutrale Paare'),
-                _kpi('Realisierter Gewinn', '\$${kcTotalRealised.toStringAsFixed(2)}',
-                    kcTotalRealised >= 0 ? AppColors.positive : AppColors.negative,
-                    help: 'Tatsaechlich verdient (geschlossene Trades + Funding)'),
+                _kpi('Realisierter Gewinn', '\$${ourTotalRealised.toStringAsFixed(2)}',
+                    ourTotalRealised >= 0 ? AppColors.positive : AppColors.negative,
+                    help: 'Seit Strategie-Optimierung (eigene Berechnung)'),
               ],
             ),
             const SizedBox(height: 8),
@@ -176,9 +177,9 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
                 _kpi('Offene P&L', '\$${kcUnrealisedPnl.toStringAsFixed(2)}',
                     kcUnrealisedPnl >= 0 ? AppColors.positive : AppColors.negative,
                     help: 'Unrealisierte Kursaenderung (wird durch Spot ausgeglichen)'),
-                _kpi('Gesamt P&L', '\$${kcTotalPnl.toStringAsFixed(2)}',
+                _kpi('Gesamt P&L (KuCoin)', '\$${kcTotalPnl.toStringAsFixed(2)}',
                     kcTotalPnl >= 0 ? AppColors.positive : AppColors.negative,
-                    help: 'Wenn du jetzt alles schliessen wuerdest'),
+                    help: 'Exchange-Wert: Inkl. frueherer Verluste vor Optimierung'),
               ],
             ),
             const SizedBox(height: 6),
