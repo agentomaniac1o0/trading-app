@@ -116,6 +116,10 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
     final ourTotalRealised = (summary?['total_realized_pnl'] ?? 0.0).toDouble();
     final kcTotalRealised = (summary?['kucoin_total_realised'] ?? summary?['total_realized_pnl'] ?? 0.0).toDouble();
     final accountEquity = (summary?['account_equity'] ?? 0.0).toDouble();
+    final initialCapital = (summary?['initial_capital'] ?? 1000.0).toDouble();
+    final returnPct = (summary?['return_pct'] ?? 0.0).toDouble();
+    final totalValue = (summary?['total_value'] ?? liveValue).toDouble();
+    final returnAbsolute = totalValue - initialCapital;
 
     if (portfolioAsync.isLoading && summaryAsync.isLoading) {
       return const Center(child: Padding(
@@ -154,10 +158,30 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
                     color: AppColors.textColor(context),
                   )),
             ),
+            const SizedBox(height: 16),
+            // Performance-Row: Einzahlung → Portfolio → Rendite
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Row(
+                children: [
+                  _perfCard('Einzahlung', '\$${initialCapital.toStringAsFixed(0)}', AppColors.secondaryColor(context)),
+                  const SizedBox(width: 8),
+                  Icon(Icons.arrow_forward, size: 16, color: AppColors.secondaryColor(context)),
+                  const SizedBox(width: 8),
+                  _perfCard('Portfolio', '\$${totalValue.toStringAsFixed(0)}', AppColors.textColor(context)),
+                  const SizedBox(width: 8),
+                  Icon(Icons.arrow_forward, size: 16, color: AppColors.secondaryColor(context)),
+                  const SizedBox(width: 8),
+                  _perfCard('Rendite', '+${returnPct.toStringAsFixed(1)}%',
+                      returnPct >= 0 ? AppColors.positive : AppColors.negative,
+                      subtitle: '+${returnAbsolute.toStringAsFixed(0)}'),
+                ],
+              ),
+            ),
             const SizedBox(height: 4),
             Center(
-              child: Text('$nCoins Coins · Spot \$${spotValue.toStringAsFixed(0)} · Futures \$${futValue.toStringAsFixed(0)}',
-                  style: TextStyle(fontSize: 11, color: AppColors.secondaryColor(context))),
+              child: Text('$nCoins Coins · $arbPositions Arb-Paare · Spot \$${spotValue.toStringAsFixed(0)} · Futures \$${futValue.toStringAsFixed(0)}',
+                  style: TextStyle(fontSize: 10, color: AppColors.secondaryColor(context))),
             ),
             const Divider(height: 20),
             Row(
@@ -538,6 +562,30 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
                 style: TextStyle(fontSize: 9, color: AppColors.secondaryColor(context).withOpacity(0.6))),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _perfCard(String label, String value, Color color, {String? subtitle}) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          children: [
+            Text(label, style: TextStyle(fontSize: 10, color: AppColors.secondaryColor(context))),
+            const SizedBox(height: 4),
+            Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: color)),
+            if (subtitle != null) ...[
+              const SizedBox(height: 2),
+              Text(subtitle, style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.7))),
+            ],
+          ],
+        ),
       ),
     );
   }

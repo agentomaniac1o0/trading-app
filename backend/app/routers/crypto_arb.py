@@ -13,6 +13,8 @@ router = APIRouter(prefix="/crypto-arb", tags=["crypto-arb"])
 DATA_DIR = os.path.expanduser("~/crypto-arb/data")
 POSITIONS_FILE = os.path.join(DATA_DIR, "positions.json")
 HISTORY_FILE = os.path.join(DATA_DIR, "history.json")
+SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
+PORTFOLIO_FILE = os.path.join(DATA_DIR, "portfolio_snapshot.json")
 
 
 def _read_json(path: str) -> list[dict]:
@@ -90,6 +92,22 @@ async def get_summary():
         with open(FUNDING_FILE) as f:
             funding = json.load(f)
 
+    # Settings (initial capital etc.)
+    settings = {}
+    if os.path.exists(SETTINGS_FILE):
+        with open(SETTINGS_FILE) as f:
+            settings = json.load(f)
+    initial_capital = settings.get("initial_capital", 1000.0)
+
+    # Portfolio total value
+    total_value = 0.0
+    if os.path.exists(PORTFOLIO_FILE):
+        with open(PORTFOLIO_FILE) as f:
+            portfolio = json.load(f)
+            total_value = portfolio.get("total_value", 0.0)
+
+    return_pct = ((total_value - initial_capital) / initial_capital * 100) if initial_capital > 0 else 0.0
+
     return {
         "active_count": len(active),
         "closed_count": len(closed),
@@ -102,6 +120,9 @@ async def get_summary():
         "kucoin_total_realised": funding.get("total_realised_pnl", total_realized_pnl),
         "kucoin_total_pnl": funding.get("total_including_unrealised", 0),
         "account_equity": funding.get("account_equity", 0),
+        "initial_capital": initial_capital,
+        "total_value": round(total_value, 2),
+        "return_pct": round(return_pct, 2),
         "updated_at": datetime.now().isoformat(),
     }
 
