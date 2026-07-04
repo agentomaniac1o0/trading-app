@@ -27,3 +27,6 @@ modules:
         path: app.trading.TradingApp.desktop
       - type: file
         path: icon.png
+      - type: file
+        path: REBUILD_20260704_001
+  # v67 - force rebuild 2026-07-04
