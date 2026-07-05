@@ -11,7 +11,7 @@ BOLD="\033[1m"
 GREEN="\033[32m"
 RESET="\033[0m"
 
-API_URL="${API_BASE_URL:-http://100.103.32.107:8000}"
+API_URL="${API_BASE_URL:-http://100.112.199.58:8000}"
 TRADING_DIR="${TRADING_DIR:-$HOME/trading-app}"
 
 echo -e "${BOLD}${GREEN}═══ Trading App Update ═══${RESET}"
