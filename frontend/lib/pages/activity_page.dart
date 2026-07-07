@@ -183,6 +183,13 @@ class ActivityPage extends ConsumerWidget {
         return (Icons.error_outline, AppColors.negative, 'Fehler');
       case 'dust':
         return (Icons.cleaning_services, AppColors.textSecondary, 'Dust');
+      case 'arb':
+        if (status == 'start') {
+          return (Icons.play_circle_outline, AppColors.blue, 'Arb Cycle Start');
+        }
+        return (Icons.sync, AppColors.positive, 'Arb Cycle Done');
+      case 'swap':
+        return (Icons.swap_horiz, AppColors.gold, 'Swap');
       default:
         return (Icons.circle, AppColors.textSecondary, type);
     }
