@@ -77,20 +77,36 @@ async def get_summary():
     total_invested = sum(p.get("cost", 0) for p in active)
     unrealized_pnl = sum(p.get("unrealized_pnl", 0) for p in active)
 
-    # Realized P&L from history.json (net_pnl field)
+    # Our calculated P&L from history.json (deduplicated)
     close_entries = [h for h in history if h.get("type") == "close"]
-    total_realized_pnl = sum(h.get("net_pnl", 0) for h in close_entries)
+    seen = set()
+    unique_closes = []
+    for h in close_entries:
+        key = f'{h.get("coin")}|{h.get("timestamp")}|{h.get("net_pnl", 0)}'
+        if key not in seen:
+            seen.add(key)
+            unique_closes.append(h)
+    local_total_realized_pnl = sum(h.get("net_pnl", 0) for h in unique_closes)
 
     # Today's realized P&L
     today_str = datetime.now().strftime("%Y-%m-%d")
-    today_closes = [h for h in close_entries if h.get("timestamp", "").startswith(today_str)]
+    today_closes = [h for h in unique_closes if h.get("timestamp", "").startswith(today_str)]
     today_realized_pnl = sum(h.get("net_pnl", 0) for h in today_closes)
 
-    # KuCoin actuals from funding snapshot
+    # KuCoin actuals from funding snapshot (authoritative source)
     funding = {}
     if os.path.exists(FUNDING_FILE):
         with open(FUNDING_FILE) as f:
             funding = json.load(f)
+
+    kc_total_realised = funding.get("total_realised_pnl")
+    kc_unrealised = funding.get("unrealised_pnl_total", 0)
+    kc_account_equity = funding.get("account_equity", 0)
+    kc_today_realised = funding.get("today_realised_pnl", 0)
+
+    # Prefer KuCoin actuals; fall back to local calculation
+    total_realized_pnl = kc_total_realised if kc_total_realised is not None else local_total_realized_pnl
+    today_pnl = kc_today_realised if kc_total_realised is not None else today_realized_pnl
 
     # Settings (initial capital etc.)
     settings = {}
@@ -99,12 +115,15 @@ async def get_summary():
             settings = json.load(f)
     initial_capital = settings.get("initial_capital", 1000.0)
 
-    # Portfolio total value
-    total_value = 0.0
+    # Portfolio total value: use KuCoin account equity + spot value
+    total_value = kc_account_equity if kc_account_equity else 0.0
+    portfolio_spot_value = 0.0
     if os.path.exists(PORTFOLIO_FILE):
         with open(PORTFOLIO_FILE) as f:
             portfolio = json.load(f)
-            total_value = portfolio.get("total_value", 0.0)
+            portfolio_spot_value = portfolio.get("spot_total", 0.0)
+    if portfolio_spot_value > 0:
+        total_value = round(portfolio_spot_value + kc_account_equity, 2)
 
     return_pct = ((total_value - initial_capital) / initial_capital * 100) if initial_capital > 0 else 0.0
 
@@ -114,12 +133,12 @@ async def get_summary():
         "total_invested": round(total_invested, 2),
         "total_realized_pnl": round(total_realized_pnl, 4),
         "unrealized_pnl": round(unrealized_pnl, 4),
-        "today_pnl": round(today_realized_pnl, 4),
-        "kucoin_unrealised_pnl": funding.get("unrealised_pnl_total", 0),
-        "kucoin_today_realised": funding.get("today_realised_pnl", 0),
-        "kucoin_total_realised": funding.get("total_realised_pnl", total_realized_pnl),
+        "today_pnl": round(today_pnl, 4),
+        "kucoin_realised_pnl": kc_total_realised if kc_total_realised is not None else 0,
+        "kucoin_unrealised_pnl": kc_unrealised,
         "kucoin_total_pnl": funding.get("total_including_unrealised", 0),
-        "account_equity": funding.get("account_equity", 0),
+        "local_realized_pnl": round(local_total_realized_pnl, 4),
+        "account_equity": kc_account_equity,
         "initial_capital": initial_capital,
         "total_value": round(total_value, 2),
         "return_pct": round(return_pct, 2),
@@ -151,13 +170,11 @@ async def sync_positions(data: PositionSync):
 
 @router.post("/sync/history")
 async def sync_history(data: HistorySync):
-    """Accept history entries from crypto-arb engine."""
+    """Accept history entries from crypto-arb engine (full replace, not append)."""
     os.makedirs(DATA_DIR, exist_ok=True)
-    existing = _read_json(HISTORY_FILE)
-    existing.extend(data.entries)
     with open(HISTORY_FILE, "w") as f:
-        json.dump(existing, f, indent=2, default=str)
-    return {"status": "ok", "count": len(existing)}
+        json.dump(data.entries, f, indent=2, default=str)
+    return {"status": "ok", "count": len(data.entries)}
 
 
 # ─── Portfolio (live KuCoin balance snapshot) ───

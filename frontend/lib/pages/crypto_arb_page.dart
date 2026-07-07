@@ -109,12 +109,12 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
     final invested = (summary?['total_invested'] ?? 0.0).toDouble();
     final unrealizedPnl = (summary?['unrealized_pnl'] ?? 0.0).toDouble();
 
-    // KuCoin actual P&L (includes funding fees)
+    // KuCoin actual P&L (authoritative source)
     final kcTotalPnl = (summary?['kucoin_total_pnl'] ?? 0.0).toDouble();
     final kcUnrealisedPnl = (summary?['kucoin_unrealised_pnl'] ?? 0.0).toDouble();
-    final kcTodayRealised = (summary?['kucoin_today_realised'] ?? 0.0).toDouble();
-    final ourTotalRealised = (summary?['total_realized_pnl'] ?? 0.0).toDouble();
-    final kcTotalRealised = (summary?['kucoin_total_realised'] ?? summary?['total_realized_pnl'] ?? 0.0).toDouble();
+    final totalRealizedPnl = (summary?['total_realized_pnl'] ?? 0.0).toDouble();
+    final todayPnl = (summary?['today_pnl'] ?? 0.0).toDouble();
+    final localRealizedPnl = (summary?['local_realized_pnl'] ?? 0.0).toDouble();
     final accountEquity = (summary?['account_equity'] ?? 0.0).toDouble();
     final initialCapital = (summary?['initial_capital'] ?? 1000.0).toDouble();
     final returnPct = (summary?['return_pct'] ?? 0.0).toDouble();
@@ -190,9 +190,9 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
                     help: 'In Strategie gebundenes Kapital'),
                 _kpi('Arb Positionen', '$arbPositions', AppColors.gold,
                     help: 'Aktive Delta-Neutrale Paare'),
-                _kpi('Realisierter Gewinn', '\$${ourTotalRealised.toStringAsFixed(2)}',
-                    ourTotalRealised >= 0 ? AppColors.positive : AppColors.negative,
-                    help: 'Seit Strategie-Optimierung (eigene Berechnung)'),
+                _kpi('Realisierter Gewinn', '\$${totalRealizedPnl.toStringAsFixed(2)}',
+                    totalRealizedPnl >= 0 ? AppColors.positive : AppColors.negative,
+                    help: 'Live vom Exchange (KuCoin)'),
               ],
             ),
             const SizedBox(height: 8),
@@ -203,7 +203,7 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
                     help: 'Unrealisierte Kursaenderung (wird durch Spot ausgeglichen)'),
                 _kpi('Gesamt P&L (KuCoin)', '\$${kcTotalPnl.toStringAsFixed(2)}',
                     kcTotalPnl >= 0 ? AppColors.positive : AppColors.negative,
-                    help: 'Exchange-Wert: Inkl. frueherer Verluste vor Optimierung'),
+                    help: 'Exchange-Wert: realisiert + unrealisiert'),
               ],
             ),
             const SizedBox(height: 6),
@@ -219,9 +219,9 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
             _sectionDivider(),
             Row(
               children: [
-                _kpi('Heute verdient', '\$${kcTodayRealised.toStringAsFixed(2)}',
-                    kcTodayRealised >= 0 ? AppColors.positive : AppColors.negative,
-                    help: 'Realisierte Gewinne/Verluste heute'),
+                _kpi('Heute verdient', '\$${todayPnl.toStringAsFixed(2)}',
+                    todayPnl >= 0 ? AppColors.positive : AppColors.negative,
+                    help: 'Realisierte Gewinne/Verluste heute (KuCoin)'),
                 _kpi('Futures-Konto', '\$${accountEquity.toStringAsFixed(0)}', AppColors.blue,
                     help: 'Guthaben auf dem Futures-Konto'),
                 _kpi('Margin', '\$${(portfolio?["futures_total"] ?? 0.0).toDouble().toStringAsFixed(0)}', AppColors.gold,

@@ -228,6 +228,20 @@ async def get_funding():
 ACTIVITY_FILE = os.path.join(DATA_DIR, "activity.jsonl")
 
 
+class ActivitySync(BaseModel):
+    events: list[dict]
+
+
+@router.post("/sync/activity")
+async def sync_activity(data: ActivitySync):
+    """Accept activity events from crypto-arb engine (full replacement)."""
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(ACTIVITY_FILE, "w") as f:
+        for event in data.events[-500:]:  # keep last 500
+            f.write(json.dumps(event, default=str) + "\n")
+    return {"status": "ok", "count": len(data.events)}
+
+
 @router.get("/activity")
 async def get_activity(limit: int = 100):
     """Get recent engine activity events."""
