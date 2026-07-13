@@ -120,6 +120,12 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
     final returnPct = (summary?['return_pct'] ?? 0.0).toDouble();
     final totalValue = (summary?['total_value'] ?? liveValue).toDouble();
     final returnAbsolute = totalValue - initialCapital;
+    // Total-Balance-P&L = Portfolio-Wert − Einzahlung. Konsistent mit Rendite.
+    // Beruecksichtigt Spot-Verluste die Futures-Gewinne ausgleichen (delta-neutral).
+    final totalBalancePnl = (summary?['total_balance_pnl'] ?? returnAbsolute).toDouble();
+    // Futures-only-P&L = KuCoin Short-Seite (realised + unrealised). NICHT das
+    // Gesamt-P&L — der entgegengesetzte Spot-Effekt fehlt. Nur Transparenz-KPI.
+    final futuresOnlyPnl = (summary?['futures_only_pnl'] ?? kcTotalPnl).toDouble();
 
     if (portfolioAsync.isLoading && summaryAsync.isLoading) {
       return const Center(child: Padding(
@@ -186,24 +192,25 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
             const Divider(height: 20),
             Row(
               children: [
-                _kpi('Arb Investiert', '\$${invested.toStringAsFixed(0)}', AppColors.blue,
-                    help: 'In Strategie gebundenes Kapital'),
-                _kpi('Arb Positionen', '$arbPositions', AppColors.gold,
-                    help: 'Aktive Delta-Neutrale Paare'),
+                _kpi('Gesamt P&L', '\$${totalBalancePnl.toStringAsFixed(2)}',
+                    totalBalancePnl >= 0 ? AppColors.positive : AppColors.negative,
+                    help: 'Saldo aller Konten minus Einzahlung (konsistent mit Rendite)'),
                 _kpi('Realisierter Gewinn', '\$${totalRealizedPnl.toStringAsFixed(2)}',
                     totalRealizedPnl >= 0 ? AppColors.positive : AppColors.negative,
-                    help: 'Live vom Exchange (KuCoin)'),
+                    help: 'Live vom Exchange (KuCoin Futures: Funding + Close-P&L)'),
+                _kpi('Arb Investiert', '\$${invested.toStringAsFixed(0)}', AppColors.blue,
+                    help: 'In Strategie gebundenes Kapital'),
               ],
             ),
             const SizedBox(height: 8),
             Row(
               children: [
-                _kpi('Offene P&L', '\$${kcUnrealisedPnl.toStringAsFixed(2)}',
+                _kpi('Offene P&L (Futures)', '\$${kcUnrealisedPnl.toStringAsFixed(2)}',
                     kcUnrealisedPnl >= 0 ? AppColors.positive : AppColors.negative,
-                    help: 'Unrealisierte Kursaenderung (wird durch Spot ausgeglichen)'),
-                _kpi('Gesamt P&L (KuCoin)', '\$${kcTotalPnl.toStringAsFixed(2)}',
-                    kcTotalPnl >= 0 ? AppColors.positive : AppColors.negative,
-                    help: 'Exchange-Wert: realisiert + unrealisiert'),
+                    help: 'Nur die Short-Seite (wird durch Spot-Gewinn ausgeglichen)'),
+                _kpi('Futures P&L (nur Short)', '\$${futuresOnlyPnl.toStringAsFixed(2)}',
+                    futuresOnlyPnl >= 0 ? AppColors.positive : AppColors.negative,
+                    help: 'KuCoin-Short-Seite: realisiert + unrealisiert (NICHT das Gesamt-P&L)'),
               ],
             ),
             const SizedBox(height: 6),

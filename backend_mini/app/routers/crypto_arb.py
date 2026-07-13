@@ -1,6 +1,6 @@
 """
 Crypto-Arb API Router – expose positions and history for Trading App frontend.
-Reads JSON files written by the crypto-arb engine.
+Reads JSON files written by the crypto-arb engine on VM 101.
 """
 import json
 import os
@@ -15,6 +15,8 @@ POSITIONS_FILE = os.path.join(DATA_DIR, "positions.json")
 HISTORY_FILE = os.path.join(DATA_DIR, "history.json")
 SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
 PORTFOLIO_FILE = os.path.join(DATA_DIR, "portfolio_snapshot.json")
+FUNDING_FILE = os.path.join(DATA_DIR, "funding_snapshot.json")
+ACTIVITY_FILE = os.path.join(DATA_DIR, "activity.jsonl")
 
 
 def _read_json(path: str) -> list[dict]:
@@ -37,9 +39,8 @@ async def get_active_positions():
     active = [p for p in positions if p.get("status") == "open"]
     
     # Enrich with KuCoin per-coin unrealised P&L
-    funding_file = os.path.join(DATA_DIR, "funding_snapshot.json")
-    if os.path.exists(funding_file):
-        with open(funding_file) as f:
+    if os.path.exists(FUNDING_FILE):
+        with open(FUNDING_FILE) as f:
             funding = json.load(f)
         per_coin = funding.get("per_coin", {})
         for p in active:
@@ -78,36 +79,69 @@ async def get_summary():
     total_invested = sum(p.get("cost", 0) for p in active)
     unrealized_pnl = sum(p.get("unrealized_pnl", 0) for p in active)
 
-    # Realized P&L from history.json (net_pnl field)
+    # Our calculated P&L from history.json (deduplicated)
     close_entries = [h for h in history if h.get("type") == "close"]
-    total_realized_pnl = sum(h.get("net_pnl", 0) for h in close_entries)
+    seen = set()
+    unique_closes = []
+    for h in close_entries:
+        key = f'{h.get("coin")}|{h.get("timestamp")}|{h.get("net_pnl", 0)}'
+        if key not in seen:
+            seen.add(key)
+            unique_closes.append(h)
+    local_total_realized_pnl = sum(h.get("net_pnl", 0) for h in unique_closes)
 
     # Today's realized P&L
     today_str = datetime.now().strftime("%Y-%m-%d")
-    today_closes = [h for h in close_entries if h.get("timestamp", "").startswith(today_str)]
+    today_closes = [h for h in unique_closes if h.get("timestamp", "").startswith(today_str)]
     today_realized_pnl = sum(h.get("net_pnl", 0) for h in today_closes)
 
-    # KuCoin actuals from funding snapshot
+    # KuCoin actuals from funding snapshot (authoritative source)
     funding = {}
-    if os.path.exists(os.path.join(DATA_DIR, "funding_snapshot.json")):
-        with open(os.path.join(DATA_DIR, "funding_snapshot.json")) as f:
+    if os.path.exists(FUNDING_FILE):
+        with open(FUNDING_FILE) as f:
             funding = json.load(f)
 
-    # Settings
+    kc_total_realised = funding.get("total_realised_pnl")
+    kc_unrealised = funding.get("unrealised_pnl_total", 0)
+    kc_account_equity = funding.get("account_equity", 0)
+    kc_today_realised = funding.get("today_realised_pnl", 0)
+
+    # Prefer KuCoin actuals; fall back to local calculation
+    total_realized_pnl = kc_total_realised if kc_total_realised is not None else local_total_realized_pnl
+    today_pnl = kc_today_realised if kc_total_realised is not None else today_realized_pnl
+
+    # Settings (initial capital etc.)
     settings = {}
     if os.path.exists(SETTINGS_FILE):
         with open(SETTINGS_FILE) as f:
             settings = json.load(f)
     initial_capital = settings.get("initial_capital", 1000.0)
 
-    # Portfolio total value
-    total_value = 0.0
+    # Portfolio total value: prefer fresh portfolio_snapshot.total_value (covers
+    # spot + futures + funding + main wallets). Fall back to funding.account_equity
+    # + spot_total when portfolio snapshot is missing or stale.
+    total_value = kc_account_equity if kc_account_equity else 0.0
+    portfolio_spot_value = 0.0
     if os.path.exists(PORTFOLIO_FILE):
         with open(PORTFOLIO_FILE) as f:
-            portfolio = json.load(f)
-            total_value = portfolio.get("total_value", 0.0)
+            pf = json.load(f)
+            portfolio_spot_value = pf.get("spot_total", 0.0)
+            pf_total = pf.get("total_value", 0.0)
+            if pf_total > 0:
+                total_value = round(float(pf_total), 2)
+            elif portfolio_spot_value > 0:
+                total_value = round(portfolio_spot_value + kc_account_equity, 2)
 
     return_pct = ((total_value - initial_capital) / initial_capital * 100) if initial_capital > 0 else 0.0
+
+    # Total-Balance-P&L: konsistent mit der Rendite-KPI. Spot-Verluste gleichen
+    # Futures-Gewinne aus (delta-neutral) → das ist das wahre P&L der Strategie.
+    total_balance_pnl = round(total_value - initial_capital, 4)
+
+    # Futures-only-P&L (KuCoin): nur die Short-Seite (realised + unrealised).
+    # Nützlich als Transparenz-KPI, aber NICHT das Gesamt-P&L, da die Spot-
+    # Seite der entgegengesetzte Effekt ist.
+    futures_only_pnl = round(funding.get("total_including_unrealised", 0), 4)
 
     return {
         "active_count": len(active),
@@ -115,12 +149,14 @@ async def get_summary():
         "total_invested": round(total_invested, 2),
         "total_realized_pnl": round(total_realized_pnl, 4),
         "unrealized_pnl": round(unrealized_pnl, 4),
-        "today_pnl": round(today_realized_pnl, 4),
-        "kucoin_unrealised_pnl": funding.get("unrealised_pnl_total", 0),
-        "kucoin_today_realised": funding.get("today_realised_pnl", 0),
-        "kucoin_total_realised": funding.get("total_realised_pnl", total_realized_pnl),
-        "kucoin_total_pnl": funding.get("total_including_unrealised", 0),
-        "account_equity": funding.get("account_equity", 0),
+        "today_pnl": round(today_pnl, 4),
+        "kucoin_realised_pnl": kc_total_realised if kc_total_realised is not None else 0,
+        "kucoin_unrealised_pnl": kc_unrealised,
+        "kucoin_total_pnl": futures_only_pnl,
+        "futures_only_pnl": futures_only_pnl,
+        "total_balance_pnl": total_balance_pnl,
+        "local_realized_pnl": round(local_total_realized_pnl, 4),
+        "account_equity": kc_account_equity,
         "initial_capital": initial_capital,
         "total_value": round(total_value, 2),
         "return_pct": round(return_pct, 2),
@@ -152,24 +188,22 @@ async def sync_positions(data: PositionSync):
 
 @router.post("/sync/history")
 async def sync_history(data: HistorySync):
-    """Accept history entries from crypto-arb engine."""
+    """Accept history entries from crypto-arb engine (full replace, not append)."""
     os.makedirs(DATA_DIR, exist_ok=True)
-    existing = _read_json(HISTORY_FILE)
-    existing.extend(data.entries)
     with open(HISTORY_FILE, "w") as f:
-        json.dump(existing, f, indent=2, default=str)
-    return {"status": "ok", "count": len(existing)}
+        json.dump(data.entries, f, indent=2, default=str)
+    return {"status": "ok", "count": len(data.entries)}
 
 
 # ─── Portfolio (live KuCoin balance snapshot) ───
-
-PORTFOLIO_FILE = os.path.join(DATA_DIR, "portfolio_snapshot.json")
 
 
 class PortfolioSync(BaseModel):
     coins: list[dict]
     spot_total: float
     futures_total: float
+    funding_total: float = 0.0
+    main_total: float = 0.0
     total_value: float
     arb_positions: int
     timestamp: str
@@ -188,14 +222,12 @@ async def sync_portfolio(data: PortfolioSync):
 async def get_portfolio():
     """Get latest portfolio snapshot from KuCoin."""
     if not os.path.exists(PORTFOLIO_FILE):
-        return {"total_value": 0, "coins": [], "spot_total": 0, "futures_total": 0, "arb_positions": 0}
+        return {"total_value": 0, "coins": [], "spot_total": 0, "futures_total": 0, "funding_total": 0, "main_total": 0, "arb_positions": 0}
     with open(PORTFOLIO_FILE) as f:
         return json.load(f)
 
 
 # ─── Funding P&L (from KuCoin, tracked by funding_tracker.py) ───
-
-FUNDING_FILE = os.path.join(DATA_DIR, "funding_snapshot.json")
 
 
 @router.post("/sync/funding")
@@ -225,8 +257,6 @@ async def get_funding():
 
 # ─── Activity Log (engine transparency) ───
 
-ACTIVITY_FILE = os.path.join(DATA_DIR, "activity.jsonl")
-
 
 class ActivitySync(BaseModel):
     events: list[dict]
@@ -237,14 +267,14 @@ async def sync_activity(data: ActivitySync):
     """Accept activity events from crypto-arb engine (full replacement)."""
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(ACTIVITY_FILE, "w") as f:
-        for event in data.events[-500:]:  # keep last 500
+        for event in data.events[-500:]:
             f.write(json.dumps(event, default=str) + "\n")
     return {"status": "ok", "count": len(data.events)}
 
 
 @router.get("/activity")
 async def get_activity(limit: int = 100):
-    """Get recent engine activity events."""
+    """Get recent engine activity events (scan, candidates, positions, errors)."""
     if not os.path.exists(ACTIVITY_FILE):
         return []
     with open(ACTIVITY_FILE) as f:
