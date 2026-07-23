@@ -150,6 +150,9 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
                       fontWeight: FontWeight.w700,
                       color: AppColors.textColor(context),
                     )),
+                const SizedBox(width: 8),
+                if (arbPositions > 0)
+                  _badge('$arbPositions Arb OFFEN', AppColors.gold),
                 const Spacer(),
                 _badge('LIVE · KuCoin', AppColors.positive),
               ],
@@ -216,19 +219,19 @@ class _CryptoArbPageState extends ConsumerState<CryptoArbPage> {
             const SizedBox(height: 6),
             Row(
               children: [
-                _kpi('Ertrag/Tag', '\$${_computeDailyEarnings(posAsync).toStringAsFixed(4)}', AppColors.gold,
-                    help: 'Erwartete Funding-Zahlungen pro Tag'),
-                _kpi('Ertrag/Monat', '\$${(_computeDailyEarnings(posAsync) * 30).toStringAsFixed(2)}', AppColors.positive,
-                    help: 'Erwartete Funding-Zahlungen pro Monat'),
+                _kpi('Funding/Tag (Prognose)', '\$${_computeDailyEarnings(posAsync).toStringAsFixed(4)}', AppColors.gold,
+                    help: 'Prognose: erwartete Funding-Einnahmen pro Tag bei aktuellen Raten (nur wiederkehrend, ohne Close-P&L)'),
+                _kpi('Funding/Monat (Prognose)', '\$${(_computeDailyEarnings(posAsync) * 30).toStringAsFixed(2)}', AppColors.positive,
+                    help: 'Prognose: Funding/Tag × 30. Nur regelmäßige Funding-Zahlungen, kein einmaliges Close-P&L.'),
               ],
             ),
             const SizedBox(height: 10),
             _sectionDivider(),
             Row(
               children: [
-                _kpi('Heute verdient', '\$${todayPnl.toStringAsFixed(2)}',
+                _kpi('Heute realisiert', '\$${todayPnl.toStringAsFixed(2)}',
                     todayPnl >= 0 ? AppColors.positive : AppColors.negative,
-                    help: 'Realisierte Gewinne/Verluste heute (KuCoin)'),
+                    help: 'KuCoin Futures RealisedPNL heute: Funding erhalten + P&L geschlossener Positionen (einmalig). Kann daher höher sein als die Funding-Prognose/Monat.'),
                 _kpi('Futures-Konto', '\$${accountEquity.toStringAsFixed(0)}', AppColors.blue,
                     help: 'Guthaben auf dem Futures-Konto'),
                 _kpi('Margin', '\$${(portfolio?["futures_total"] ?? 0.0).toDouble().toStringAsFixed(0)}', AppColors.gold,
