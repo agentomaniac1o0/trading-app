@@ -45,14 +45,21 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/missioncontrol", tags=["missioncontrol"])
 
 # ── Home-Lab Pfade ─────────────────────────────────────────────────────
-MONITORING_DIR = os.path.expanduser("~/agent-templates/monitoring")
+# LXC 104 layout: ~/trading-app/backend/data/monitoring/
+# Monitoring-Crew läuft auf VM 101 und rsync'd Reports + audit/quality logs
+# täglich nach LXC 104 (siehe agent-templates/monitoring/sync_to_lxc104.sh).
+# Override via env (für Tests/Dev auf VM 101 ohne LXC 104): MONITORING_DIR.
+_DATA_BASE = os.path.expanduser("~/trading-app/backend/data")
+MONITORING_DIR = os.getenv("MONITORING_DIR", os.path.join(_DATA_BASE, "monitoring"))
 REPORTS_DIR = os.path.join(MONITORING_DIR, "reports")
 AUDIT_LOG = os.path.join(MONITORING_DIR, "security_audit_log.json")
 CODE_QUALITY_LOG = os.path.join(MONITORING_DIR, "code_quality_log.json")
 SECURITY_FIX_LOG = os.path.join(MONITORING_DIR, "security_fix_log.json")
 
-# ── Production-Center Pfade (via SSH-Pull) ─────────────────────────────
-PROD_MONITORING_DIR = os.path.expanduser("~/agent-templates/monitoring/production-center")
+# ── Production-Center Pfade (via SSH-Pull für health_check.json) ────────
+# Reports/audit/graphify werden ebenfalls via rsync von VM 101 nach
+# LXC 104 gesynct — liegen unter data/monitoring/production-center/.
+PROD_MONITORING_DIR = os.path.join(MONITORING_DIR, "production-center")
 PROD_REPORTS_DIR = os.path.join(PROD_MONITORING_DIR, "reports")
 PROD_AUDIT_LOG = os.path.join(PROD_MONITORING_DIR, "security_audit_log.json")
 PROD_GRAPHIFY_DIR = os.path.join(PROD_MONITORING_DIR, "graphify-out")
