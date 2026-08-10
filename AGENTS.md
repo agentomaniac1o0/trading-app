@@ -274,36 +274,51 @@ trading-app/
 - **Mission Control Backend-API** → IST hier (`routers/missioncontrol.py`)
 - Trading Crew (Agent-Logik) → bleibt in `~/trading-crew/`
 
-## Deployment (ai-agents, CachyOS)
+## Deployment (LXC 104 + VM 101)
 
-**Security Policy: Tailscale-Only-Binding.** Kein Service bindet an `0.0.0.0` oder `127.0.0.1`. Alle Services binden ausschließlich an `100.103.32.107`.
+**Security Policy: Tailscale-Only-Binding.** Kein Service bindet an `0.0.0.0` oder `127.0.0.1`. Alle Services binden an die Tailscale-IP.
 
-| Service | Port | Bind-Adresse | Systemd Unit |
-|---------|------|-------------|-------------|
-| Backend (FastAPI) | 8000 | `100.103.32.107` | `trading-backend.service` |
-| Flatpak Repo (HTTP) | 8081 | `100.103.32.107` | `trading-repo.service` |
+| Service | Port | Bind-Adresse | Systemd Unit | Host |
+|---------|------|-------------|-------------|------|
+| Backend (FastAPI) | 8000 | `100.112.199.58` | `~/.config/systemd/user/trading-backend.service` (--user, user `trading`) | **LXC 104** |
+| Flatpak Repo (HTTP) | 8081 | `100.103.32.107` | `trading-repo.service` (--user, user `anton`) | VM 101 |
+
+Hinweis Das Backend läuft seit 2026-07-23 auf LXC 104 (vorher VM 101). VM 101 Backend abgeschafft; nur Flatpak-Repo bleibt dort. Auf LXC 104 hat der `trading`-User kein sudo — der Service läuft als systemd `--user` Service mit `loginctl enable-linger trading` (startet beim Boot nach).
 
 **Kritische Env-Variablen (`~/.env`):**
 
 | Variable | Wert | Nutzer |
 |----------|------|--------|
-| `TRADING_BACKEND_URL` | `http://100.103.32.107:8000` | trading-crew `portfolio_context.py` |
-| `API_BASE_URL` | `http://100.103.32.107:8000` | Mission Control App |
+| `TRADING_BACKEND_URL` | `http://100.112.199.58:8000` | trading-crew `portfolio_context.py` |
+| `API_BASE_URL` | `http://100.112.199.58:8000` | Mission Control App + Trading App Frontend |
 
-**Backend starten:**
+**Backend starten (LXC 104):**
 ```bash
-cd ~/trading-app/backend && .venv/bin/uvicorn app.main:app --host 100.103.32.107 --port 8000
+# Direkt via SSH auf LXC 104 als user trading:
+ssh trading@100.112.199.58
+cd ~/trading-app/backend && .venv/bin/uvicorn app.main:app --host 100.112.199.58 --port 8000
+# Als systemd user-service:
+systemctl --user restart trading-backend.service
+systemctl --user status trading-backend.service
 ```
 
-**One-Command Update (update.sh):**
+**Backend ad-hoc deployen (von VM 101 via scp):**
+```bash
+scp -i ~/.ssh/lxc104_monitor backend/app/routers/crypto_arb.py root@100.112.199.58:/home/trading/trading-app/backend/app/routers/
+ssh -i ~/.ssh/lxc104_monitor root@100.112.199.58 "chown trading:trading /home/trading/trading-app/backend/app/routers/crypto_arb.py"
+# Danach service kick via user-systemd:
+ssh -i ~/.ssh/lxc104_monitor root@100.112.199.58 "su - trading -c 'export XDG_RUNTIME_DIR=/run/user/1000; export DBUS_SESSION_BUS_ADDRESS=unix:path=\$XDG_RUNTIME_DIR/bus; systemctl --user restart trading-backend.service'"
+```
+
+**One-Command Update (update.sh):** Läuft nur fürs Flatpak Build (Frontend), nicht fürs Backend.
 ```bash
 cd ~/trading-app && bash update.sh
-# Macht: git pull → flutter build linux → flatpak-builder → desktop entry install
+# Macht: git pull → flutter build linux → flatpak-builder → desktop entry install (VM 101)
 ```
 
-**Flatpak manuell bauen (auf ai-agents Server):**
+**Flatpak manuell bauen (VM 101, da Flutter installiert):**
 ```bash
-cd ~/trading-app/frontend && flutter build linux --release --dart-define=API_BASE_URL=http://100.103.32.107:8000
+cd ~/trading-app/frontend && flutter build linux --release --dart-define=API_BASE_URL=http://100.112.199.58:8000
 cd ~/trading-app/flatpak && rm -rf .flatpak-builder && flatpak-builder --repo=repo --force-clean --install --user build-dir app.trading.TradingApp.yml
 ```
 
@@ -315,7 +330,7 @@ flatpak update app.trading.TradingApp
 
 **Android APK:**
 ```bash
-cd ~/trading-app/frontend && flutter build apk --release --dart-define=API_BASE_URL=http://100.103.32.107:8000
+cd ~/trading-app/frontend && flutter build apk --release --dart-define=API_BASE_URL=http://100.112.199.58:8000
 # APK: build/app/outputs/flutter-apk/app-release.apk
 ```
 
