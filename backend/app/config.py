@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     price_cache_ttl: int = 60
     import_trades_path: str = "../data/trades.json"
     api_key: str = ""
+    reports_write_key: str = ""
     live_targets_home: str = (
         "pve-1:100.119.174.53,nextcloud:100.75.220.89,ai-agents:127.0.0.1,"
         "ghost-blog:192.168.0.172,image-gen:100.111.44.63,"

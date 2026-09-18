@@ -132,6 +132,13 @@ class PortfolioReviewResponse(BaseModel):
     assets: list[PortfolioReviewAsset]
 
 
+class WriteReportRequest(BaseModel):
+    category: str
+    content: str = Field(max_length=500_000)
+    report_date: str | None = None
+    report_time: str | None = None
+
+
 class HealthScore(BaseModel):
     score: int
     level: str

@@ -4,12 +4,13 @@ import re
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import crud
+from app.config import settings
 from app.database import get_db
-from app.schemas import PortfolioJudgment, PortfolioReviewAsset, PortfolioReviewResponse
+from app.schemas import PortfolioJudgment, PortfolioReviewAsset, PortfolioReviewResponse, WriteReportRequest
 from app.services.price_engine import get_price
 
 logger = logging.getLogger(__name__)
@@ -279,3 +280,39 @@ async def list_market_reports():
             "latest_date": os.path.basename(files[0]).split("_", 1)[1].replace(".txt", "") if files else None,
         }
     return result
+
+
+# ─── Write Reports (for trading-crew sync) ───
+
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_TIME_RE = re.compile(r"^\d{2}-\d{2}$")
+
+
+@router.post("/write")
+async def write_report(data: WriteReportRequest, request: Request):
+    # Optional dedicated key for the write endpoint (GETs stay open for the apps)
+    if settings.reports_write_key and request.headers.get("X-Write-Key") != settings.reports_write_key:
+        raise HTTPException(status_code=401, detail="Invalid write key")
+    # Whitelist category to prevent path traversal via filename
+    if data.category not in MARKET_CATEGORIES:
+        raise HTTPException(status_code=400, detail=f"Unknown category: {data.category}")
+    now = datetime.now()
+    report_date = data.report_date or now.strftime("%Y-%m-%d")
+    report_time = data.report_time or now.strftime("%H-%M")
+    if not _DATE_RE.match(report_date) or not _TIME_RE.match(report_time):
+        raise HTTPException(status_code=400, detail="report_date must be YYYY-MM-DD, report_time must be HH-MM")
+    try:
+        datetime.strptime(report_date, "%Y-%m-%d")
+        datetime.strptime(report_time, "%H-%M")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="report_date/report_time is not a valid date/time")
+    if not data.content.strip():
+        raise HTTPException(status_code=400, detail="content must not be empty")
+
+    os.makedirs(REPORTS_DIR, exist_ok=True)
+    filename = f"{data.category}_{report_date}_{report_time}.txt"
+    filepath = os.path.join(REPORTS_DIR, filename)
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(data.content)
+    logger.info("Report written: %s (%d bytes)", filename, len(data.content))
+    return {"status": "ok", "filename": filename}
