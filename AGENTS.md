@@ -240,6 +240,7 @@ trading-app/
 | GET | `/api/reports/market` | Alle Report-Kategorien auflisten |
 | GET | `/api/reports/market/{category}` | Neuester Report pro Kategorie |
 | GET | `/api/reports/portfolio-review` | Neuester Portfolio Review |
+| POST | `/api/reports/write` | Report schreiben (trading-crew Sync; X-Write-Key, Whitelist, 500KB-Limit) |
 | GET | `/api/health` | Health-Check |
 
 ### Mission Control API (`/api/missioncontrol/`)
@@ -264,6 +265,12 @@ trading-app/
 | POST | `/{location}/graphiphy/viz/refresh` | Graph aktualisieren |
 
 **Location-Parameter:** `home-lab` (Standard) oder `production-center`
+
+## Session-Log: 2026-09-18 — Write-Endpoint rekonstruiert (stale-App-Fix)
+
+- **Bug:** App zeigte seit 01.07. dieselben Reports — `POST /api/reports/write` fehlte beim LXC-104-Umzug (23.07.), Crew-Sync lief ins Leere. Backfill von 1231 Report-Dateien (01.07.–18.09.) nachgeholt.
+- **Fix:** Endpoint aus backend_mini rekonstruiert + gehärtet: MARKET_CATEGORIES-Whitelist (Path Traversal), Datums-/Zeit-Semantikvalidierung, `Field(max_length=500_000)`, optionaler `X-Write-Key` (env `REPORTS_WRITE_KEY`, gesetzt auf LXC 104 + VM 101 ~/.env — nur POST geschützt, GETs offen für Apps).
+- Commit `bbf3e6b`. Deploy per scp + `systemctl --user restart trading-backend`.
 
 ## Was NICHT hier rein gehört
 
